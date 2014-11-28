@@ -1,4 +1,4 @@
-zengine
+zutils
 =======
 
-基于C++和LUA的服务端游戏引擎框架
+基于chromium/base的c++基础库
