@@ -267,15 +267,16 @@ uint64 MySQLDatabase::ExecuteInsertID(const base::StringPiece& q_str) {
 
 int MySQLDatabase::Execute(const base::StringPiece& q_str) {
   DCHECK(!q_str.empty()) << "Querystring is not empty";
-  if (!CheckConnection()) return 2000;
+  if (!CheckConnection()) return -2000;
   
   int er=0;
   int res = SafeQuery(q_str, &er);
   if (res) {
-      LOG(ERROR) << mysql_error(my_) << ". In sql: " << q_str;
+    LOG(ERROR) << mysql_error(my_) << ". In sql: " << q_str;
+    return -res;
+  } else {
+    return static_cast<int>(mysql_affected_rows(my_));
   }
-  
-  return res;
 }
 
 uint64 MySQLDatabase::GetNextID(const char* table_name, const char* field_name) {

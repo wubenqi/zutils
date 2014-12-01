@@ -181,7 +181,8 @@ public:
   virtual uint64 ExecuteInsertID(const base::StringPiece& q_str) = 0;
   
   // 插入，更新和删除
-  // 返回值为0，成功
+  // 返回值为>=0，成功，受影响的行数
+  // <0 出错
   virtual int Execute(const base::StringPiece& q_str) = 0;
   
   virtual bool BeginTransaction() { return false; }
