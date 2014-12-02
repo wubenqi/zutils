@@ -24,7 +24,7 @@ public:
 
 	// Packet();
   // 注意：是body_len,packet_len = body_len+kPacketHeaderSize
-	TeamTalkPacket(uint32 message_type, uint32 body_len);
+	TeamTalkPacket(uint32 message_type, uint16 reserved, uint32 body_len);
 	virtual ~TeamTalkPacket();
 
   static const scoped_refptr<TeamTalkPacket>& GetEmptyPacket();
@@ -34,7 +34,7 @@ public:
   //  -1： 生成出错，数据包长度超过kMaxPacketSize
   //  0 ： 生成成功，有数据包体
   //  1 ： 生成成功，未带数据包体
-  static inline int GeneratePacketHeader( uint8* data, uint32 message_type, uint32 body_len ) {
+  static inline int GeneratePacketHeader( uint8* data, uint32 message_type, uint16 reserved, uint32 body_len) {
     if (body_len>kMaxPacketSize) {
       return -1;
     }
@@ -52,8 +52,8 @@ public:
     data[8] = (kPacketVersion >> 8) & 0xFF;
     data[9] = kPacketVersion & 0xFF;
 
-    data[10] = (kReservedValue >> 8) & 0xFF;
-    data[11] = kReservedValue & 0xFF;
+    data[10] = (reserved >> 8) & 0xFF;
+    data[11] = reserved & 0xFF;
 
     return 0;
   }
@@ -63,15 +63,15 @@ public:
 	//  -1： 解析出错，如果版本号不对或者数据包长度超过kMaxPacketSize
 	//  0 ： 解析成功，有数据包体
 	//  1 ： 解析成功，未带数据包体
-	static inline int ParsePacketHeader( const uint8* head_data, uint32* message_type, uint32* body_len ) {
+	static inline int ParsePacketHeader( const uint8* head_data, uint32* message_type, uint16* reserved, uint32* body_len ) {
 		uint16 version;
-    uint16 reserved;
+    // uint16 reserved;
     uint32 packet_len;
 
     packet_len = (( head_data[0] & 0xFF) << 24) | ((head_data[1] & 0xFF) << 16) | ((head_data[2] & 0xFF) <<  8) | (head_data[3] & 0xFF);
     *message_type = (( head_data[4] & 0xFF) << 24) | ((head_data[5] & 0xFF) << 16) | ((head_data[6] & 0xFF) <<  8) | (head_data[7] & 0xFF);
     version = head_data[8] << 8 | head_data[9];
-    reserved = head_data[10] << 8 | head_data[11];
+    *reserved = head_data[10] << 8 | head_data[11];
 
 		if (version!=kPacketVersion ||
         packet_len > kMaxPacketSize ||
@@ -107,6 +107,10 @@ public:
 
   inline uint16 GetVersion() const {
     return (uint16)data_[8]<<8 | data_[9];
+  }
+
+  inline uint16 GetReserved() const {
+    return (uint16)data_[10]<<8 | data_[11]; 
   }
 
   inline const void* GetBodyData() const { 

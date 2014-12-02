@@ -36,8 +36,16 @@ public:
 	virtual bool ParseFromArray(const void* data, uint32 data_len) { return false; }
 	virtual bool SerializeToArray(void* data, uint32 data_len) const { return false; }
 
+  inline uint16 GetReserved() const {
+    return reserved_;
+  }
+  inline void SetReserved(uint16 val) {
+    reserved_ = val;
+  } 
+
 private:
 	MessagePDUType message_type_;
+  uint16 reserved_;
 	bool null_able_;			// 消息体是否可以为空
 };
 

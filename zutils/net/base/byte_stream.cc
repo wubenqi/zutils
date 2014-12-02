@@ -161,7 +161,8 @@ int32 ByteStream::ReadString(std::string& str) const {
 		return -1;
 	}
 	str.clear();
-	str.append(m_pBuffer + m_currentPos, 0, l);
+	// str.append(m_pBuffer + m_currentPos, 0, l);
+  str.append(m_pBuffer + m_currentPos, l);
 	m_currentPos += l;
 	return 0;
 }

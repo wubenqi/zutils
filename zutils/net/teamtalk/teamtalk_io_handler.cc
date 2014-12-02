@@ -56,16 +56,17 @@ void TeamTalkIOHandler::Read() {
 
     uint32 message_type;
 		uint32 body_len;
+    uint16 reserved;
 
 		while (read_buf_->read_data_size()>=TeamTalkPacket::kPacketHeaderSize) {
 
-			int ret = TeamTalkPacket::ParsePacketHeader((const uint8*)(read_buf_->read_data()), &message_type, &body_len);
+			int ret = TeamTalkPacket::ParsePacketHeader((const uint8*)(read_buf_->read_data()), &message_type, &reserved, &body_len);
 			if (ret==-1) {
 				Close();
 				LOG(ERROR) << "Recv a valid packet";
 				return;
 			} else if (ret==1) {
-				TeamTalkPacketPtr data(new TeamTalkPacket(message_type, 0));
+				TeamTalkPacketPtr data(new TeamTalkPacket(message_type, reserved, 0));
 				int ret = OnDataReceived(data);
 				read_buf_->skip_read_pos(TeamTalkPacket::kPacketHeaderSize);
 				read_buf_->remove_read_data();
@@ -75,7 +76,7 @@ void TeamTalkIOHandler::Read() {
 				}
 			} else if (ret==0) {
 				if (read_buf_->read_data_size()>=(int)((body_len+TeamTalkPacket::kPacketHeaderSize))) {
-					TeamTalkPacketPtr data(new TeamTalkPacket(message_type, body_len));
+					TeamTalkPacketPtr data(new TeamTalkPacket(message_type, reserved, body_len));
 					memcpy(data->GetBodyMutableData(), read_buf_->read_data()+TeamTalkPacket::kPacketHeaderSize, body_len);
 					int ret = OnDataReceived(data);
 					read_buf_->skip_read_pos(body_len+TeamTalkPacket::kPacketHeaderSize);

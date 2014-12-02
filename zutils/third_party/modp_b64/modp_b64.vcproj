@@ -252,7 +252,7 @@
 			<Tool
 				Name="VCLibrarianTool"
 				AdditionalOptions="/ignore:4221"
-				OutputFile="$(OutDir)\lib\$(ProjectName).lib"
+				OutputFile="../../../lib\$(ProjectName).lib"
 				AdditionalLibraryDirectories="..\..\third_party\directxsdk\files\Lib\x86;..\..\third_party\platformsdk_win7\files\Lib"
 			/>
 			<Tool
