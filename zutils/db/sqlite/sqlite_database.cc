@@ -1,7 +1,8 @@
-// Copyright 2010, www.lelewan.com
-// All rights reserved
+// Copyright (C) 2014 by wubenqi
+// Distributable under the terms of either the Apache License (Version 2.0) or 
+// the GNU Lesser General Public License, as specified in the COPYING file.
 //
-// Author: wubenqi<wubenqi@caitong.net>, 2010-10-15
+// By: wubenqi<wubenqi@gmail.com>
 //
 
 #include "db/sqlite/sqlite_database.h"
