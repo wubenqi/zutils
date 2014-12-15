@@ -1,8 +1,9 @@
 ADD_DEFINITIONS(-DHAVE_CONFIG_H)
+ADD_DEFINITIONS(-D__linux__)
 
-if (__linux__)             
+#if (__linux__)             
 	INCLUDE_DIRECTORIES(./linux)
-endif()
+#endif()
 
 SET(SRC_LIST buffer.c
             evbuffer.c
@@ -18,14 +19,14 @@ SET(SRC_LIST buffer.c
             signal.c
             strlcpy.c)
 
-if (__linux__)
+#if (__linux__)
 	SET(PLATFORM_LIST epoll.c epoll_sub.c)
-endif()
+#endif()
 			
-if (__linux__)             
-  SET(CMAKE_C_FLAGS "-Wall -ggdb -pipe -march=i386 -mtune=i686")
-  SET(CMAKE_CXX_FLAGS "-Wall -ggdb -pipe -march=i386 -mtune=i686")
-endif()
+#if (__linux__)             
+  SET(CMAKE_C_FLAGS "-Wall -ggdb -pipe -march=x86-64 -mtune=i686")
+  SET(CMAKE_CXX_FLAGS "-Wall -ggdb -pipe -march=x86-64 -mtune=i686")
+#endif()
 
 
 SET(LIBRARY_OUTPUT_PATH ${TF_CURRENT_BINARY_PATH_LIB})

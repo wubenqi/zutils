@@ -65,7 +65,7 @@ void TCPAcceptor::Accept() {
 #if defined(OS_WIN)
 		LOG(ERROR) << WSAGetLastError();
 #else
-   LOG(ERROR) << errno;
+   // LOG(ERROR) << errno;
 #endif
 	}
 }

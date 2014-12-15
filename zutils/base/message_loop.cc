@@ -37,6 +37,10 @@
 #include "base/message_pump_android.h"
 #endif
 
+#if defined(PATCH_BY_WUBENQI)
+#undef TOOLKIT_GTK
+#endif
+
 #if defined(TOOLKIT_GTK)
 #include <gdk/gdk.h>
 #include <gdk/gdkx.h>

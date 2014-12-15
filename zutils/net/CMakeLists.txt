@@ -1,7 +1,6 @@
 SET(SRC_LIST base/byte_stream.cc
 			base/io_buffer.cc
 			base/net_errors_posix.cc
-			base/packet.cc
 			base/data_io_buffer.cc
 			base/net_errors.cc
 			engine/io_handler.cc
@@ -10,7 +9,10 @@ SET(SRC_LIST base/byte_stream.cc
 			engine/net_engine_manager.cc
 			engine/socket_ops.cc
 			engine/tcp_connector.cc
-			hammer/hammer_io_handler.cc)
+			znet/packet.cc
+			znet/znet_io_handler.cc
+			teamtalk/teamtalk_packet.cc
+			teamtalk/teamtalk_io_handler.cc)
 
 SET(LIBRARY_OUTPUT_PATH ${TF_CURRENT_BINARY_PATH_LIB})
 
