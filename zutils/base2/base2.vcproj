@@ -322,6 +322,10 @@
 			>
 		</File>
 		<File
+			RelativePath=".\linked_hash_map.h"
+			>
+		</File>
+		<File
 			RelativePath=".\map-util.h"
 			>
 		</File>
