@@ -14,7 +14,7 @@
 
 #include <string>
 #include "base/basictypes.h"
-#include "base/message_loop.h"
+#include "base/message_loop/message_loop.h"
 
 #include "base2/file_path_util.h"
 //#include "base2/timer_manager.h"
@@ -42,8 +42,11 @@ public:
     running_ = false;
   }
 
-  MessageLoop* message_loop() {
-    return &message_loop_;
+  virtual MessageLoop* message_loop() {
+    if (message_loop_ = NULL) {
+      message_loop_ = new MessageLoop();
+    }
+    return message_loop_;
   }
 
   virtual int Run( );
@@ -90,7 +93,7 @@ protected:
 	int Run2( );
 
 	bool running_;
-  MessageLoop message_loop_;
+  MessageLoop* message_loop_;
   FilePath exe_path_;
   //TimerManager timer_manager_;
 };

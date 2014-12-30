@@ -147,17 +147,17 @@ TeamTalkPacketPtr MessageToPacket(const MessagePDU* message) {
   return MessageToPacket(*message);
 }
 
-net::IOBufferPtr MessageToIOBuffer(const MessagePDU& message) {
-  int message_size = message.ByteSize();
-  net::IOBuffer* io_buffer = new net::IOBuffer(TeamTalkPacket::kPacketHeaderSize + message_size);
-  TeamTalkPacket::GeneratePacketHeader(reinterpret_cast<uint8*>(io_buffer->data()), message.message_type(), message.GetReserved(), message_size);
-  message.SerializeToArray(io_buffer->data()+TeamTalkPacket::kPacketHeaderSize, message_size);
-  return io_buffer;
-}
-
-net::IOBufferPtr MessageToIOBuffer(const MessagePDU* message) {
-  DCHECK(message);
-  return MessageToIOBuffer(*message);
-}
+//net::IOBufferPtr MessageToIOBuffer(const MessagePDU& message) {
+//  int message_size = message.ByteSize();
+//  net::IOBuffer* io_buffer = new net::IOBuffer(TeamTalkPacket::kPacketHeaderSize + message_size);
+//  TeamTalkPacket::GeneratePacketHeader(reinterpret_cast<uint8*>(io_buffer->data()), message.message_type(), message.GetReserved(), message_size);
+//  message.SerializeToArray(io_buffer->data()+TeamTalkPacket::kPacketHeaderSize, message_size);
+//  return io_buffer;
+//}
+//
+//net::IOBufferPtr MessageToIOBuffer(const MessagePDU* message) {
+//  DCHECK(message);
+//  return MessageToIOBuffer(*message);
+//}
 
 }

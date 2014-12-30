@@ -9,7 +9,7 @@
 #define MESSAGE_PDU_MESSAGE_PDU_FACTORY_MANAGER_H_
 
 #include "base/memory/singleton.h"
-#include "base/hash_tables.h"
+#include "base/containers/hash_tables.h"
 #include "message_pdu/message_pdu_factory.h"
 
 namespace message {

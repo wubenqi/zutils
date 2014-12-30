@@ -9,12 +9,12 @@
 #define BASE2_FILE_PATH_UTIL_H_
 #pragma once
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 
 namespace file_path_util {
 
-std::string ToStringHack(const FilePath& file_path);
-FilePath FromStringHack(const std::string& str);
+std::string ToStringHack(const base::FilePath& file_path);
+base::FilePath FromStringHack(const std::string& str);
 
 }
 

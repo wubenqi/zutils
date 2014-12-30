@@ -13,7 +13,7 @@
 #include "base/logging.h"
 //#include "base/file_util.h"
 #include "base/stl_util.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base2/file_path_util.h"
 
 //#include <stdio.h>
@@ -141,7 +141,7 @@ bool TinyxmlParser::ParseXMLData(XMLHandler& handler, const std::string &xml_tex
 
 bool TinyxmlParser::ParseXMLFile(XMLHandler& handler, const std::string& filename) {
 	std::string data;
-  if(!file_util::ReadFileToString(file_path_util::FromStringHack(filename), &data)) {
+  if(!base::ReadFileToString(file_path_util::FromStringHack(filename), &data)) {
 		LOG(ERROR) << "TinyxmlParser::ParseXMLFile - Unable to open XMLFile";
 		return false;
 	} else {

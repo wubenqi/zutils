@@ -9,8 +9,7 @@
 #define MESSAGE_PDU_MESSAGE_PDU_UTIL_H_
 #pragma once
 
-#include "net/base/io_buffer.h"
-#include "net/teamtalk/teamtalk_packet.h"
+#include "net/codec/teamtalk/teamtalk_packet.h"
 
 #include "message_pdu/message_pdu.h"
 
@@ -23,8 +22,8 @@ MessagePDU* ParseMessagePDUFromArrayData(const char* data, uint32 data_len);
 
 TeamTalkPacketPtr MessageToPacket(const MessagePDU& message);
 TeamTalkPacketPtr MessageToPacket(const MessagePDU* message);
-net::IOBufferPtr MessageToIOBuffer(const MessagePDU& message);
-net::IOBufferPtr MessageToIOBuffer(const MessagePDU* message);
+//net::IOBufferPtr MessageToIOBuffer(const MessagePDU& message);
+//net::IOBufferPtr MessageToIOBuffer(const MessagePDU* message);
 
 }
 

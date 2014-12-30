@@ -8,7 +8,7 @@
 #include "base2/string_util2.h"
 
 #include "base/stl_util.h"
-#include "base/string_number_conversions.h"
+#include "base/strings/string_number_conversions.h"
 
 const std::string* JoinString(const std::vector<uint32>& parts, char sep, std::string* s) {
   if (parts.empty())

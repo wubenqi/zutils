@@ -13,7 +13,7 @@
 
 #include "base/basictypes.h"
 #include "base/stl_util.h"
-#include "base/string_piece.h"
+#include "base/strings/string_piece.h"
 
 //#include "base/string_number_conversions.h"
 

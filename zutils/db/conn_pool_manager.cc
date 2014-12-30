@@ -7,7 +7,7 @@
 
 #include "db/conn_pool_manager.h"
 
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 
 #ifdef USE_DATABASE_DLL
 #include "base2/dyn_lib_manager.h"

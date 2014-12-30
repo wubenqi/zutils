@@ -112,6 +112,10 @@ BaseDaemon::BaseDaemon()
 }
 
 BaseDaemon::~BaseDaemon( ) {
+  if (message_loop_) {
+    delete message_loop_;
+    message_loop_ = NULL;
+  }
 }
 
 int BaseDaemon::LoadConfig( const FilePath& xml_ini_file ) {
@@ -132,7 +136,7 @@ int	BaseDaemon::Initialize( int argc, char** argv ) {
 //}
 
 int BaseDaemon::Run( ) {
-  message_loop_.Run();
+  message_loop_->Run();
   return 0;
 }
 
@@ -151,7 +155,7 @@ int BaseDaemon::Run2( ) {
   running_ = true;
 #endif
 
-  g_message_loop = &message_loop_;
+  g_message_loop = message_loop();
 
   Run();
   // message_loop_.Run();
@@ -175,11 +179,19 @@ int BaseDaemon::DoMain( int argc, char** argv ) {
 	PathService::Get(base::FILE_EXE, &exe);
   exe_path_ = exe.DirName();
 	FilePath log_filename = exe.ReplaceExtension(FILE_PATH_LITERAL("log"));
-	logging::InitLogging(log_filename.value().c_str(),
-		logging::LOG_TO_BOTH_FILE_AND_SYSTEM_DEBUG_LOG,
-		logging::LOCK_LOG_FILE,
-		logging::DELETE_OLD_LOG_FILE,
-		logging::DISABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS);
+
+  logging::LoggingSettings logging_settings;
+  logging_settings.log_file = log_filename.value().c_str();
+  logging_settings.lock_log = logging::LOCK_LOG_FILE;
+  logging_settings.delete_old = logging::APPEND_TO_OLD_LOG_FILE;
+  logging_settings.logging_dest = logging::LOG_TO_ALL;
+  logging::InitLogging(logging_settings);
+
+// 	logging::InitLogging(log_filename.value().c_str(),
+// 		logging::LOG_TO_BOTH_FILE_AND_SYSTEM_DEBUG_LOG,
+// 		logging::LOCK_LOG_FILE,
+// 		logging::DELETE_OLD_LOG_FILE,
+// 		logging::DISABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS);
 
 	// We want process and thread IDs because we may have multiple processes.
 	// Note: temporarily enabled timestamps in an effort to catch bug 6361.
@@ -195,7 +207,7 @@ int BaseDaemon::DoMain( int argc, char** argv ) {
 
 	//CHECK(base::EnableInProcessStackDumping());
 
-  FilePath ini_filename = exe.ReplaceExtension(FILE_PATH_LITERAL("xml"));
+  base::FilePath ini_filename = exe.ReplaceExtension(FILE_PATH_LITERAL("xml"));
   CommandLine* command_line = CommandLine::ForCurrentProcess();
   if (command_line->HasSwitch("xml")) {
     ini_filename = exe.DirName().AppendASCII(command_line->GetSwitchValueASCII("xml"));

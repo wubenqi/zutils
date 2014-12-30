@@ -8,7 +8,7 @@
 #ifndef BASE2_STRING_UTILS2_H_
 #define BASE2_STRING_UTILS2_H_
 
-#include "base/string_util.h"
+#include "base/strings/string_util.h"
 
 const std::string* JoinString(const std::vector<uint32>& parts, char sep, std::string* s);
 

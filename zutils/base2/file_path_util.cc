@@ -7,7 +7,7 @@
 
 #include "base2/file_path_util.h"
 
-#include "base/sys_string_conversions.h"
+#include "base/strings/sys_string_conversions.h"
 
 namespace file_path_util {
 
@@ -26,10 +26,10 @@ std::string ToStringHack(const FilePath& file_path) {
 
 #elif defined(OS_WIN)
 
-FilePath FromStringHack(const std::string& string) {
-	return FilePath(base::SysNativeMBToWide(string));
+base::FilePath FromStringHack(const std::string& string) {
+  return base::FilePath(base::SysNativeMBToWide(string));
 }
-std::string ToStringHack(const FilePath& file_path) {
+std::string ToStringHack(const base::FilePath& file_path) {
 	return base::SysWideToNativeMB(file_path.value());
 }
 

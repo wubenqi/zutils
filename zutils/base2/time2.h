@@ -9,7 +9,7 @@
 #define BASE2_TIME2_H_
 #pragma once
 
-#include "base/time.h"
+#include "base/time/time.h"
 
 namespace base {
 

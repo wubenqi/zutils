@@ -7,7 +7,7 @@
 
 #include "base2/config_file_xml_handler.h"
 
-#include "base/string_util.h"
+#include "base/strings/string_util.h"
 #include "base2/xml/xml_attributes.h"
 
 
