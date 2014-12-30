@@ -14,12 +14,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <string>
 #include <vector>
-
-#if !defined(OS_ANDROID) && !defined(OS_NACL)
-#include <execinfo.h>
-#endif
 
 #if defined(__GLIBCXX__)
 #include <cxxabi.h>
@@ -40,12 +35,11 @@
 #include <ostream>
 
 #include "base/basictypes.h"
-#include "base/eintr_wrapper.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/posix/eintr_wrapper.h"
 #include "base/safe_strerror_posix.h"
-#include "base/string_piece.h"
-#include "base/stringprintf.h"
+#include "base/strings/string_piece.h"
 
 #if defined(USE_SYMBOLIZE)
 #include "base/third_party/symbolize/symbolize.h"
@@ -58,35 +52,26 @@
 namespace base {
 namespace debug {
 
-bool SpawnDebuggerOnProcess(unsigned process_id) {
-#if OS_ANDROID || OS_NACL
-  NOTIMPLEMENTED();
-  return false;
-#else
-  const std::string debug_cmd =
-      StringPrintf("xterm -e 'gdb --pid=%u' &", process_id);
-  LOG(WARNING) << "Starting debugger on pid " << process_id
-               << " with command `" << debug_cmd << "`";
-  int ret = system(debug_cmd.c_str());
-  if (ret == -1)
-    return false;
-  return true;
-#endif
-}
-
 #if defined(OS_MACOSX) || defined(OS_BSD)
 
 // Based on Apple's recommended method as described in
 // http://developer.apple.com/qa/qa2004/qa1361.html
 bool BeingDebugged() {
+  // NOTE: This code MUST be async-signal safe (it's used by in-process
+  // stack dumping signal handler). NO malloc or stdio is allowed here.
+  //
+  // While some code used below may be async-signal unsafe, note how
+  // the result is cached (see |is_set| and |being_debugged| static variables
+  // right below). If this code is properly warmed-up early
+  // in the start-up process, it should be safe to use later.
+
   // If the process is sandboxed then we can't use the sysctl, so cache the
   // value.
   static bool is_set = false;
   static bool being_debugged = false;
 
-  if (is_set) {
+  if (is_set)
     return being_debugged;
-  }
 
   // Initialize mib, which tells sysctl what info we want.  In this case,
   // we're looking for information about a specific process ID.
@@ -141,6 +126,9 @@ bool BeingDebugged() {
 // can't detach without forking(), and that's not so great.
 // static
 bool BeingDebugged() {
+  // NOTE: This code MUST be async-signal safe (it's used by in-process
+  // stack dumping signal handler). NO malloc or stdio is allowed here.
+
   int status_fd = open("/proc/self/status", O_RDONLY);
   if (status_fd == -1)
     return false;
@@ -151,7 +139,7 @@ bool BeingDebugged() {
   char buf[1024];
 
   ssize_t num_read = HANDLE_EINTR(read(status_fd, buf, sizeof(buf)));
-  if (HANDLE_EINTR(close(status_fd)) < 0)
+  if (IGNORE_EINTR(close(status_fd)) < 0)
     return false;
 
   if (num_read <= 0)
@@ -189,8 +177,19 @@ bool BeingDebugged() {
 // +-------+-----------------+-----------------+
 //
 // Thus we do the following:
-// Linux: Debug mode, send SIGTRAP; Release mode, send SIGABRT.
+// Linux: Debug mode if a debugger is attached, send SIGTRAP; otherwise send
+//        SIGABRT
 // Mac: Always send SIGTRAP.
+
+#if defined(ARCH_CPU_ARMEL)
+#define DEBUG_BREAK_ASM() asm("bkpt 0")
+#elif defined(ARCH_CPU_ARM64)
+#define DEBUG_BREAK_ASM() asm("brk 0")
+#elif defined(ARCH_CPU_MIPS_FAMILY)
+#define DEBUG_BREAK_ASM() asm("break 2")
+#elif defined(ARCH_CPU_X86_FAMILY)
+#define DEBUG_BREAK_ASM() asm("int3")
+#endif
 
 #if defined(NDEBUG) && !defined(OS_MACOSX) && !defined(OS_ANDROID)
 #define DEBUG_BREAK() abort()
@@ -199,36 +198,46 @@ bool BeingDebugged() {
 // should ask for advice from some NaCl experts about the optimum thing here.
 // http://code.google.com/p/nativeclient/issues/detail?id=645
 #define DEBUG_BREAK() abort()
-#elif defined(ARCH_CPU_ARM_FAMILY)
-#if defined(OS_ANDROID)
+#elif !defined(OS_MACOSX)
 // Though Android has a "helpful" process called debuggerd to catch native
-// signals on the general assumption that they are fatal errors. The bkpt
-// instruction appears to cause SIGBUS which is trapped by debuggerd, and
-// we've had great difficulty continuing in a debugger once we stop from
-// SIG triggered by native code.
+// signals on the general assumption that they are fatal errors. If no debugger
+// is attached, we call abort since Breakpad needs SIGABRT to create a dump.
+// When debugger is attached, for ARM platform the bkpt instruction appears
+// to cause SIGBUS which is trapped by debuggerd, and we've had great
+// difficulty continuing in a debugger once we stop from SIG triggered by native
+// code, use GDB to set |go| to 1 to resume execution; for X86 platform, use
+// "int3" to setup breakpiont and raise SIGTRAP.
 //
-// Use GDB to set |go| to 1 to resume execution.
-#define DEBUG_BREAK() do { \
-  if (!BeingDebugged()) { \
-    abort(); \
-  } else { \
-    volatile int go = 0; \
-    while (!go) { \
-      base::PlatformThread::Sleep(base::TimeDelta::FromMilliseconds(100)); \
-    } \
-  } \
-} while (0)
+// On other POSIX architectures, except Mac OS X, we use the same logic to
+// ensure that breakpad creates a dump on crashes while it is still possible to
+// use a debugger.
+namespace {
+void DebugBreak() {
+  if (!BeingDebugged()) {
+    abort();
+  } else {
+#if defined(DEBUG_BREAK_ASM)
+    DEBUG_BREAK_ASM();
 #else
-// ARM && !ANDROID
-#define DEBUG_BREAK() asm("bkpt 0")
+    volatile int go = 0;
+    while (!go) {
+      base::PlatformThread::Sleep(base::TimeDelta::FromMilliseconds(100));
+    }
 #endif
-#elif defined(ARCH_CPU_MIPS_FAMILY)
-#define DEBUG_BREAK() asm("break 2")
+  }
+}
+}  // namespace
+#define DEBUG_BREAK() DebugBreak()
+#elif defined(DEBUG_BREAK_ASM)
+#define DEBUG_BREAK() DEBUG_BREAK_ASM()
 #else
-#define DEBUG_BREAK() asm("int3")
+#error "Don't know how to debug break on this architecture/OS"
 #endif
 
 void BreakDebugger() {
+  // NOTE: This code MUST be async-signal safe (it's used by in-process
+  // stack dumping signal handler). NO malloc or stdio is allowed here.
+
   DEBUG_BREAK();
 #if defined(OS_ANDROID) && !defined(OFFICIAL_BUILD)
   // For Android development we always build release (debug builds are

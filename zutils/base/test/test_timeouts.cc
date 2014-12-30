@@ -4,18 +4,30 @@
 
 #include "base/test/test_timeouts.h"
 
+#include <algorithm>
+
 #include "base/command_line.h"
+#include "base/debug/debugger.h"
 #include "base/logging.h"
-#include "base/string_number_conversions.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/test/test_switches.h"
 
 namespace {
 
-#ifdef ADDRESS_SANITIZER
+// ASan/TSan/MSan instrument each memory access. This may slow the execution
+// down significantly.
+#if defined(MEMORY_SANITIZER)
+// For MSan the slowdown depends heavily on the value of msan_track_origins GYP
+// flag. The multiplier below corresponds to msan_track_origins=1.
+static const int kTimeoutMultiplier = 6;
+#elif defined(ADDRESS_SANITIZER) || defined(THREAD_SANITIZER) || \
+    defined(SYZYASAN)
 static const int kTimeoutMultiplier = 2;
 #else
 static const int kTimeoutMultiplier = 1;
 #endif
+
+const int kAlmostInfiniteTimeoutMs = 100000000;
 
 // Sets value to the greatest of:
 // 1) value's current value multiplied by kTimeoutMultiplier (assuming
@@ -54,8 +66,13 @@ bool TestTimeouts::initialized_ = false;
 // static
 int TestTimeouts::tiny_timeout_ms_ = 100;
 int TestTimeouts::action_timeout_ms_ = 10000;
+#ifndef NDEBUG
 int TestTimeouts::action_max_timeout_ms_ = 45000;
-int TestTimeouts::large_test_timeout_ms_ = 10 * 60 * 1000;
+#else
+int TestTimeouts::action_max_timeout_ms_ = 30000;
+#endif  // NDEBUG
+
+int TestTimeouts::test_launcher_timeout_ms_ = 45000;
 
 // static
 void TestTimeouts::Initialize() {
@@ -65,18 +82,28 @@ void TestTimeouts::Initialize() {
   }
   initialized_ = true;
 
+  if (base::debug::BeingDebugged()) {
+    fprintf(stdout,
+        "Detected presence of a debugger, running without test timeouts.\n");
+  }
+
   // Note that these timeouts MUST be initialized in the correct order as
   // per the CHECKS below.
   InitializeTimeout(switches::kTestTinyTimeout, &tiny_timeout_ms_);
-  InitializeTimeout(switches::kUiTestActionTimeout, tiny_timeout_ms_,
+  InitializeTimeout(switches::kUiTestActionTimeout,
+                    base::debug::BeingDebugged() ? kAlmostInfiniteTimeoutMs
+                                                 : tiny_timeout_ms_,
                     &action_timeout_ms_);
   InitializeTimeout(switches::kUiTestActionMaxTimeout, action_timeout_ms_,
                     &action_max_timeout_ms_);
-  InitializeTimeout(switches::kTestLargeTimeout, action_max_timeout_ms_,
-                    &large_test_timeout_ms_);
+
+  // Test launcher timeout is independent from anything above action timeout.
+  InitializeTimeout(switches::kTestLauncherTimeout, action_timeout_ms_,
+                    &test_launcher_timeout_ms_);
 
   // The timeout values should be increasing in the right order.
   CHECK(tiny_timeout_ms_ <= action_timeout_ms_);
   CHECK(action_timeout_ms_ <= action_max_timeout_ms_);
-  CHECK(action_max_timeout_ms_ <= large_test_timeout_ms_);
+
+  CHECK(action_timeout_ms_ <= test_launcher_timeout_ms_);
 }

@@ -21,9 +21,10 @@
 class NSImage;
 #endif  // __OBJC__
 
+namespace base {
+
 class FilePath;
 
-namespace base {
 namespace mac {
 
 // Full screen modes, in increasing order of priority.  More permissive modes
@@ -45,6 +46,10 @@ BASE_EXPORT bool FSRefFromPath(const std::string& path, FSRef* ref);
 // Returns an sRGB color space.  The return value is a static value; do not
 // release it!
 BASE_EXPORT CGColorSpaceRef GetSRGBColorSpace();
+
+// Returns the generic RGB color space. The return value is a static value; do
+// not release it!
+BASE_EXPORT CGColorSpaceRef GetGenericRGBColorSpace();
 
 // Returns the color space being used by the main display.  The return value
 // is a static value; do not release it!
@@ -87,16 +92,6 @@ BASE_EXPORT bool AmIForeground();
 // Excludes the file given by |file_path| from being backed up by Time Machine.
 BASE_EXPORT bool SetFileBackupExclusion(const FilePath& file_path);
 
-// Sets the process name as displayed in Activity Monitor to process_name.
-BASE_EXPORT void SetProcessName(CFStringRef process_name);
-
-// Converts a NSImage to a CGImageRef.  Normally, the system frameworks can do
-// this fine, especially on 10.6.  On 10.5, however, CGImage cannot handle
-// converting a PDF-backed NSImage into a CGImageRef.  This function will
-// rasterize the PDF into a bitmap CGImage.  The caller is responsible for
-// releasing the return value.
-BASE_EXPORT CGImageRef CopyNSImageToCGImage(NSImage* image);
-
 // Checks if the current application is set as a Login Item, so it will launch
 // on Login. If a non-NULL pointer to is_hidden is passed, the Login Item also
 // is queried for the 'hide on launch' flag.
@@ -118,8 +113,18 @@ BASE_EXPORT void RemoveFromLoginItems();
 BASE_EXPORT bool WasLaunchedAsLoginOrResumeItem();
 
 // Returns true if the current process was automatically launched as a
+// 'Login Item' or via Resume, and the 'Reopen windows when logging back in'
+// checkbox was selected by the user.  This indicates that the previous
+// session should be restored.
+BASE_EXPORT bool WasLaunchedAsLoginItemRestoreState();
+
+// Returns true if the current process was automatically launched as a
 // 'Login Item' with 'hide on startup' flag. Used to suppress opening windows.
 BASE_EXPORT bool WasLaunchedAsHiddenLoginItem();
+
+// Remove the quarantine xattr from the given file. Returns false if there was
+// an error, or true otherwise.
+BASE_EXPORT bool RemoveQuarantineAttribute(const FilePath& file_path);
 
 // Run-time OS version checks. Use these instead of
 // base::SysInfo::OperatingSystemVersionNumbers. Prefer the "OrEarlier" and
@@ -136,13 +141,28 @@ BASE_EXPORT bool IsOSLionOrLater();
 
 // Mountain Lion is Mac OS X 10.8, Darwin 12.
 BASE_EXPORT bool IsOSMountainLion();
+BASE_EXPORT bool IsOSMountainLionOrEarlier();
 BASE_EXPORT bool IsOSMountainLionOrLater();
+
+// Mavericks is Mac OS X 10.9, Darwin 13.
+BASE_EXPORT bool IsOSMavericks();
+BASE_EXPORT bool IsOSMavericksOrEarlier();
+BASE_EXPORT bool IsOSMavericksOrLater();
+
+// Yosemite is Mac OS X 10.10, Darwin 14.
+BASE_EXPORT bool IsOSYosemite();
+BASE_EXPORT bool IsOSYosemiteOrLater();
 
 // This should be infrequently used. It only makes sense to use this to avoid
 // codepaths that are very likely to break on future (unreleased, untested,
-// unborn) OS releases.
-BASE_EXPORT
-    bool IsOSDangerouslyLaterThanMountainLionForUseByCFAllocatorReplacement();
+// unborn) OS releases, or to log when the OS is newer than any known version.
+BASE_EXPORT bool IsOSLaterThanYosemite_DontCallThis();
+
+// Inline functions that are redundant due to version ranges being mutually-
+// exclusive.
+inline bool IsOSLionOrEarlier() { return !IsOSMountainLionOrLater(); }
+inline bool IsOSMountainLionOrEarlier() { return !IsOSMavericksOrLater(); }
+inline bool IsOSMavericksOrEarlier() { return !IsOSYosemiteOrLater(); }
 
 // When the deployment target is set, the code produced cannot run on earlier
 // OS releases. That enables some of the IsOS* family to be implemented as
@@ -160,7 +180,6 @@ inline bool IsOSLionOrLater() { return true; }
     MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_7
 #define BASE_MAC_MAC_UTIL_H_INLINED_GT_10_7
 inline bool IsOSLion() { return false; }
-inline bool IsOSLionOrEarlier() { return false; }
 #endif
 
 #if defined(MAC_OS_X_VERSION_10_8) && \
@@ -173,10 +192,31 @@ inline bool IsOSMountainLionOrLater() { return true; }
     MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_8
 #define BASE_MAC_MAC_UTIL_H_INLINED_GT_10_8
 inline bool IsOSMountainLion() { return false; }
-inline bool IsOSDangerouslyLaterThanMountainLionForUseByCFAllocatorReplacement()
-{
-  return true;
-}
+#endif
+
+#if defined(MAC_OS_X_VERSION_10_9) && \
+    MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_9
+#define BASE_MAC_MAC_UTIL_H_INLINED_GE_10_9
+inline bool IsOSMavericksOrLater() { return true; }
+#endif
+
+#if defined(MAC_OS_X_VERSION_10_9) && \
+    MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_9
+#define BASE_MAC_MAC_UTIL_H_INLINED_GT_10_9
+inline bool IsOSMavericks() { return false; }
+#endif
+
+#if defined(MAC_OS_X_VERSION_10_10) && \
+    MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_10
+#define BASE_MAC_MAC_UTIL_H_INLINED_GE_10_10
+inline bool IsOSYosemiteOrLater() { return true; }
+#endif
+
+#if defined(MAC_OS_X_VERSION_10_10) && \
+    MAC_OS_X_VERSION_MIN_REQUIRED > MAC_OS_X_VERSION_10_10
+#define BASE_MAC_MAC_UTIL_H_INLINED_GT_10_10
+inline bool IsOSYosemite() { return false; }
+inline bool IsOSLaterThanYosemite_DontCallThis() { return true; }
 #endif
 
 // Retrieve the system's model identifier string from the IOKit registry:

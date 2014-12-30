@@ -18,9 +18,7 @@
 #define ENABLE_NON_THREAD_SAFE 0
 #endif
 
-#if ENABLE_NON_THREAD_SAFE
 #include "base/threading/non_thread_safe_impl.h"
-#endif
 
 namespace base {
 
@@ -56,7 +54,7 @@ class NonThreadSafeDoNothing {
 // }
 //
 // Note that base::ThreadChecker offers identical functionality to
-// NonThreadSafe, but does not require inheritence. In general, it is preferable
+// NonThreadSafe, but does not require inheritance. In general, it is preferable
 // to have a base::ThreadChecker as a member, rather than inherit from
 // NonThreadSafe. For more details about when to choose one over the other, see
 // the documentation for base::ThreadChecker.
@@ -70,4 +68,4 @@ typedef NonThreadSafeDoNothing NonThreadSafe;
 
 }  // namespace base
 
-#endif  // BASE_NON_THREAD_SAFE_H_
+#endif  // BASE_THREADING_NON_THREAD_SAFE_H_

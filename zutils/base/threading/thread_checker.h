@@ -20,9 +20,7 @@
 #define ENABLE_THREAD_CHECKER 0
 #endif
 
-#if ENABLE_THREAD_CHECKER
 #include "base/threading/thread_checker_impl.h"
-#endif
 
 namespace base {
 
@@ -46,7 +44,7 @@ class ThreadCheckerDoNothing {
 //
 // While inheriting from base::NonThreadSafe may give a clear indication about
 // the thread-safety of a class, it may also lead to violations of the style
-// guide with regard to multiple inheritence. The choice between having a
+// guide with regard to multiple inheritance. The choice between having a
 // ThreadChecker member and inheriting from base::NonThreadSafe should be based
 // on whether:
 //  - Derived classes need to know the thread they belong to, as opposed to

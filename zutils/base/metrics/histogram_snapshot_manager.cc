@@ -25,22 +25,21 @@ HistogramSnapshotManager::~HistogramSnapshotManager() {
   STLDeleteValues(&logged_samples_);
 }
 
-void HistogramSnapshotManager::PrepareDeltas(Histogram::Flags flag_to_set,
-                                             bool record_only_uma) {
+void HistogramSnapshotManager::PrepareDeltas(
+    HistogramBase::Flags flag_to_set,
+    HistogramBase::Flags required_flags) {
   StatisticsRecorder::Histograms histograms;
   StatisticsRecorder::GetHistograms(&histograms);
   for (StatisticsRecorder::Histograms::const_iterator it = histograms.begin();
        histograms.end() != it;
        ++it) {
     (*it)->SetFlags(flag_to_set);
-    if (record_only_uma &&
-        0 == ((*it)->flags() & Histogram::kUmaTargetedHistogramFlag))
-      continue;
-    PrepareDelta(**it);
+    if (((*it)->flags() & required_flags) == required_flags)
+      PrepareDelta(**it);
   }
 }
 
-void HistogramSnapshotManager::PrepareDelta(const Histogram& histogram) {
+void HistogramSnapshotManager::PrepareDelta(const HistogramBase& histogram) {
   DCHECK(histogram_flattener_);
 
   // Get up-to-date snapshot of sample stats.
@@ -52,13 +51,13 @@ void HistogramSnapshotManager::PrepareDelta(const Histogram& histogram) {
   // Crash if we detect that our histograms have been overwritten.  This may be
   // a fair distance from the memory smasher, but we hope to correlate these
   // crashes with other events, such as plugins, or usage patterns, etc.
-  if (Histogram::BUCKET_ORDER_ERROR & corruption) {
+  if (HistogramBase::BUCKET_ORDER_ERROR & corruption) {
     // The checksum should have caught this, so crash separately if it didn't.
-    CHECK_NE(0, Histogram::RANGE_CHECKSUM_ERROR & corruption);
+    CHECK_NE(0, HistogramBase::RANGE_CHECKSUM_ERROR & corruption);
     CHECK(false);  // Crash for the bucket order corruption.
   }
   // Checksum corruption might not have caused order corruption.
-  CHECK_EQ(0, Histogram::RANGE_CHECKSUM_ERROR & corruption);
+  CHECK_EQ(0, HistogramBase::RANGE_CHECKSUM_ERROR & corruption);
 
   // Note, at this point corruption can only be COUNT_HIGH_ERROR or
   // COUNT_LOW_ERROR and they never arise together, so we don't need to extract
@@ -67,14 +66,14 @@ void HistogramSnapshotManager::PrepareDelta(const Histogram& histogram) {
     DLOG(ERROR) << "Histogram: " << histogram_name
                 << " has data corruption: " << corruption;
     histogram_flattener_->InconsistencyDetected(
-        static_cast<Histogram::Inconsistencies>(corruption));
+        static_cast<HistogramBase::Inconsistency>(corruption));
     // Don't record corrupt data to metrics services.
     int old_corruption = inconsistencies_[histogram_name];
     if (old_corruption == (corruption | old_corruption))
       return;  // We've already seen this corruption for this histogram.
     inconsistencies_[histogram_name] |= corruption;
     histogram_flattener_->UniqueInconsistencyDetected(
-        static_cast<Histogram::Inconsistencies>(corruption));
+        static_cast<HistogramBase::Inconsistency>(corruption));
     return;
   }
 
@@ -94,7 +93,7 @@ void HistogramSnapshotManager::PrepareDelta(const Histogram& histogram) {
     to_log = snapshot.get();
   }
 
-  if (to_log->redundant_count() > 0)
+  if (to_log->TotalCount() > 0)
     histogram_flattener_->RecordDelta(histogram, *to_log);
 }
 

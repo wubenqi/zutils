@@ -11,11 +11,12 @@ namespace base {
 namespace win {
 
 #if defined(_WIN64) && !defined(NACL_WIN64)
-// TODO(rvargas): Bug 27218. Make sure this is ok.
-#error This code is not tested on x64. Please make sure all the base unit tests\
+// TODO(jschuh): crbug.com/167707 Make sure this is ok.
+#pragma message ("Warning: \
+ This code is not tested on x64. Please make sure all the base unit tests\
  pass before doing any real work. The current unit tests don't test the\
  differences between 32- and 64-bits implementations. Bugs may slip through.\
- You need to improve the coverage before continuing.
+ You need to improve the coverage before continuing.")
 #endif
 
 // Structure to perform imports enumerations.
@@ -312,10 +313,11 @@ bool PEImage::EnumRelocs(EnumRelocsFunction callback, PVOID cookie) const {
   PIMAGE_BASE_RELOCATION base = reinterpret_cast<PIMAGE_BASE_RELOCATION>(
       directory);
 
-  if (directory == NULL || size < sizeof(IMAGE_BASE_RELOCATION))
+  if (!directory)
     return true;
 
-  while (base->SizeOfBlock) {
+  while (size >= sizeof(IMAGE_BASE_RELOCATION) && base->SizeOfBlock &&
+         size >= base->SizeOfBlock) {
     PWORD reloc = reinterpret_cast<PWORD>(base + 1);
     UINT num_relocs = (base->SizeOfBlock - sizeof(IMAGE_BASE_RELOCATION)) /
         sizeof(WORD);
@@ -328,6 +330,7 @@ bool PEImage::EnumRelocs(EnumRelocsFunction callback, PVOID cookie) const {
         return false;
     }
 
+    size -= base->SizeOfBlock;
     base = reinterpret_cast<PIMAGE_BASE_RELOCATION>(
                reinterpret_cast<char*>(base) + base->SizeOfBlock);
   }

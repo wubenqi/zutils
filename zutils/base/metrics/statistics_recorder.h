@@ -23,14 +23,14 @@
 namespace base {
 
 class BucketRanges;
-class Histogram;
+class HistogramBase;
 class Lock;
 
 class BASE_EXPORT StatisticsRecorder {
  public:
-  typedef std::vector<Histogram*> Histograms;
+  typedef std::vector<HistogramBase*> Histograms;
 
-  // Initializes the StatisticsRecorder system.
+  // Initializes the StatisticsRecorder system. Safe to call multiple times.
   static void Initialize();
 
   // Find out if histograms can now be registered into our list.
@@ -40,7 +40,7 @@ class BASE_EXPORT StatisticsRecorder {
   // identically named histogram is already registered, then the argument
   // |histogram| will deleted.  The returned value is always the registered
   // histogram (either the argument, or the pre-existing registered histogram).
-  static Histogram* RegisterOrDeleteDuplicate(Histogram* histogram);
+  static HistogramBase* RegisterOrDeleteDuplicate(HistogramBase* histogram);
 
   // Register, or add a new BucketRanges. If an identically BucketRanges is
   // already registered, then the argument |ranges| will deleted. The returned
@@ -49,16 +49,15 @@ class BASE_EXPORT StatisticsRecorder {
   static const BucketRanges* RegisterOrDeleteDuplicateRanges(
       const BucketRanges* ranges);
 
-  // Method for collecting stats about histograms created in browser and
-  // renderer processes. |suffix| is appended to histogram names. |suffix| could
-  // be either browser or renderer.
-  static void CollectHistogramStats(const std::string& suffix);
-
-  // Methods for printing histograms.  Only histograms which have query as
-  // a substring are written to output (an empty string will process all
-  // registered histograms).
+  // Methods for appending histogram data to a string.  Only histograms which
+  // have |query| as a substring are written to |output| (an empty string will
+  // process all registered histograms).
   static void WriteHTMLGraph(const std::string& query, std::string* output);
   static void WriteGraph(const std::string& query, std::string* output);
+
+  // Returns the histograms with |query| as a substring as JSON text (an empty
+  // |query| will process all registered histograms).
+  static std::string ToJSON(const std::string& query);
 
   // Method for extracting histograms which were marked for use by UMA.
   static void GetHistograms(Histograms* output);
@@ -68,21 +67,17 @@ class BASE_EXPORT StatisticsRecorder {
 
   // Find a histogram by name. It matches the exact name. This method is thread
   // safe.  It returns NULL if a matching histogram is not found.
-  static Histogram* FindHistogram(const std::string& name);
-
-  static bool dump_on_exit() { return dump_on_exit_; }
-
-  static void set_dump_on_exit(bool enable) { dump_on_exit_ = enable; }
+  static HistogramBase* FindHistogram(const std::string& name);
 
   // GetSnapshot copies some of the pointers to registered histograms into the
-  // caller supplied vector (Histograms).  Only histograms with names matching
-  // query are returned. The query must be a substring of histogram name for its
-  // pointer to be copied.
+  // caller supplied vector (Histograms). Only histograms which have |query| as
+  // a substring are copied (an empty string will process all registered
+  // histograms).
   static void GetSnapshot(const std::string& query, Histograms* snapshot);
 
  private:
   // We keep all registered histograms in a map, from name to histogram.
-  typedef std::map<std::string, Histogram*> HistogramMap;
+  typedef std::map<std::string, HistogramBase*> HistogramMap;
 
   // We keep all |bucket_ranges_| in a map, from checksum to a list of
   // |bucket_ranges_|.  Checksum is calculated from the |ranges_| in
@@ -90,7 +85,13 @@ class BASE_EXPORT StatisticsRecorder {
   typedef std::map<uint32, std::list<const BucketRanges*>*> RangesMap;
 
   friend struct DefaultLazyInstanceTraits<StatisticsRecorder>;
+  friend class HistogramBaseTest;
+  friend class HistogramSnapshotManagerTest;
+  friend class HistogramTest;
+  friend class SparseHistogramTest;
   friend class StatisticsRecorderTest;
+  FRIEND_TEST_ALL_PREFIXES(HistogramDeltaSerializationTest,
+                           DeserializeHistogramAndAddSamples);
 
   // The constructor just initializes static members. Usually client code should
   // use Initialize to do this. But in test code, you can friend this class and
@@ -98,14 +99,13 @@ class BASE_EXPORT StatisticsRecorder {
   StatisticsRecorder();
   ~StatisticsRecorder();
 
+  static void DumpHistogramsToVlog(void* instance);
+
   static HistogramMap* histograms_;
   static RangesMap* ranges_;
 
   // Lock protects access to above maps.
   static base::Lock* lock_;
-
-  // Dump all known histograms to log.
-  static bool dump_on_exit_;
 
   DISALLOW_COPY_AND_ASSIGN(StatisticsRecorder);
 };

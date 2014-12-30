@@ -32,8 +32,8 @@
 
 #include "base/base_export.h"
 #include "base/basictypes.h"
-#include "base/string_piece.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/strings/string_piece.h"
 
 namespace base {
 class Value;
@@ -73,6 +73,7 @@ class BASE_EXPORT JSONReader {
     JSON_UNEXPECTED_DATA_AFTER_ROOT,
     JSON_UNSUPPORTED_ENCODING,
     JSON_UNQUOTED_DICTIONARY_KEY,
+    JSON_PARSE_ERROR_COUNT
   };
 
   // String versions of parse error codes.

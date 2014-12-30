@@ -8,14 +8,14 @@
 #include "base/files/file_path_watcher.h"
 
 namespace base {
-namespace files {
 
 namespace {
 
 class FilePathWatcherImpl : public FilePathWatcher::PlatformDelegate {
  public:
   virtual bool Watch(const FilePath& path,
-                     FilePathWatcher::Delegate* delegate) OVERRIDE {
+                     bool recursive,
+                     const FilePathWatcher::Callback& callback) OVERRIDE {
     return false;
   }
 
@@ -33,5 +33,4 @@ FilePathWatcher::FilePathWatcher() {
   impl_ = new FilePathWatcherImpl();
 }
 
-}  // namespace files
 }  // namespace base

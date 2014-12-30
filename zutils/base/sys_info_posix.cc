@@ -7,14 +7,17 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/param.h>
+#include <sys/resource.h>
 #include <sys/utsname.h>
 #include <unistd.h>
 
 #include "base/basictypes.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
+#include "base/lazy_instance.h"
 #include "base/logging.h"
+#include "base/strings/utf_string_conversions.h"
+#include "base/sys_info_internal.h"
 #include "base/threading/thread_restrictions.h"
-#include "base/utf_string_conversions.h"
 
 #if defined(OS_ANDROID)
 #include <sys/vfs.h>
@@ -23,13 +26,24 @@
 #include <sys/statvfs.h>
 #endif
 
-namespace base {
+namespace {
 
 #if !defined(OS_OPENBSD)
-int SysInfo::NumberOfProcessors() {
-  // It seems that sysconf returns the number of "logical" processors on both
-  // Mac and Linux.  So we get the number of "online logical" processors.
-  long res = sysconf(_SC_NPROCESSORS_ONLN);
+int NumberOfProcessors() {
+  // sysconf returns the number of "logical" (not "physical") processors on both
+  // Mac and Linux.  So we get the number of max available "logical" processors.
+  //
+  // Note that the number of "currently online" processors may be fewer than the
+  // returned value of NumberOfProcessors(). On some platforms, the kernel may
+  // make some processors offline intermittently, to save power when system
+  // loading is low.
+  //
+  // One common use case that needs to know the processor count is to create
+  // optimal number of threads for optimization. It should make plan according
+  // to the number of "max available" processors instead of "currently online"
+  // ones. The kernel should be smart enough to make all processors online when
+  // it has sufficient number of threads waiting to run.
+  long res = sysconf(_SC_NPROCESSORS_CONF);
   if (res == -1) {
     NOTREACHED();
     return 1;
@@ -37,47 +51,81 @@ int SysInfo::NumberOfProcessors() {
 
   return static_cast<int>(res);
 }
+
+base::LazyInstance<
+    base::internal::LazySysInfoValue<int, NumberOfProcessors> >::Leaky
+    g_lazy_number_of_processors = LAZY_INSTANCE_INITIALIZER;
 #endif
+
+int64 AmountOfVirtualMemory() {
+  struct rlimit limit;
+  int result = getrlimit(RLIMIT_DATA, &limit);
+  if (result != 0) {
+    NOTREACHED();
+    return 0;
+  }
+  return limit.rlim_cur == RLIM_INFINITY ? 0 : limit.rlim_cur;
+}
+
+base::LazyInstance<
+    base::internal::LazySysInfoValue<int64, AmountOfVirtualMemory> >::Leaky
+    g_lazy_virtual_memory = LAZY_INSTANCE_INITIALIZER;
+
+}  // namespace
+
+namespace base {
+
+#if !defined(OS_OPENBSD)
+int SysInfo::NumberOfProcessors() {
+  return g_lazy_number_of_processors.Get().value();
+}
+#endif
+
+// static
+int64 SysInfo::AmountOfVirtualMemory() {
+  return g_lazy_virtual_memory.Get().value();
+}
 
 // static
 int64 SysInfo::AmountOfFreeDiskSpace(const FilePath& path) {
   base::ThreadRestrictions::AssertIOAllowed();
 
   struct statvfs stats;
-  if (statvfs(path.value().c_str(), &stats) != 0) {
+  if (HANDLE_EINTR(statvfs(path.value().c_str(), &stats)) != 0)
     return -1;
-  }
   return static_cast<int64>(stats.f_bavail) * stats.f_frsize;
 }
 
-#if !defined(OS_MACOSX)
+#if !defined(OS_MACOSX) && !defined(OS_ANDROID)
 // static
 std::string SysInfo::OperatingSystemName() {
   struct utsname info;
   if (uname(&info) < 0) {
     NOTREACHED();
-    return "";
+    return std::string();
   }
   return std::string(info.sysname);
 }
+#endif
 
+#if !defined(OS_MACOSX) && !defined(OS_ANDROID)
 // static
 std::string SysInfo::OperatingSystemVersion() {
   struct utsname info;
   if (uname(&info) < 0) {
     NOTREACHED();
-    return "";
+    return std::string();
   }
   return std::string(info.release);
 }
 #endif
 
 // static
-std::string SysInfo::CPUArchitecture() {
+std::string SysInfo::OperatingSystemArchitecture() {
   struct utsname info;
   if (uname(&info) < 0) {
     NOTREACHED();
-    return "";
+    return std::string();
   }
   std::string arch(info.machine);
   if (arch == "i386" || arch == "i486" || arch == "i586" || arch == "i686") {

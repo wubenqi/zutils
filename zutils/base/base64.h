@@ -8,13 +8,12 @@
 #include <string>
 
 #include "base/base_export.h"
-#include "base/string_piece.h"
+#include "base/strings/string_piece.h"
 
 namespace base {
 
-// Encodes the input string in base64.  Returns true if successful and false
-// otherwise.  The output string is only modified if successful.
-BASE_EXPORT bool Base64Encode(const StringPiece& input, std::string* output);
+// Encodes the input string in base64.
+BASE_EXPORT void Base64Encode(const StringPiece& input, std::string* output);
 
 // Decodes the base64 input string.  Returns true if successful and false
 // otherwise.  The output string is only modified if successful.

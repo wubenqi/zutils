@@ -5,12 +5,12 @@
 #include "base/json/json_reader.h"
 
 #include "base/base_paths.h"
-#include "base/file_util.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/path_service.h"
-#include "base/string_piece.h"
-#include "base/utf_string_conversions.h"
+#include "base/strings/string_piece.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -62,6 +62,19 @@ TEST(JSONReaderTest, Reading) {
   ASSERT_TRUE(root.get());
   list = static_cast<ListValue*>(root.get());
   EXPECT_EQ(3u, list->GetSize());
+  root.reset(JSONReader().ReadToValue("/* comment **/42"));
+  ASSERT_TRUE(root.get());
+  EXPECT_TRUE(root->IsType(Value::TYPE_INTEGER));
+  EXPECT_TRUE(root->GetAsInteger(&int_val));
+  EXPECT_EQ(42, int_val);
+  root.reset(JSONReader().ReadToValue(
+      "/* comment **/\n"
+      "// */ 43\n"
+      "44"));
+  ASSERT_TRUE(root.get());
+  EXPECT_TRUE(root->IsType(Value::TYPE_INTEGER));
+  EXPECT_TRUE(root->GetAsInteger(&int_val));
+  EXPECT_EQ(44, int_val);
 
   // Test number formats
   root.reset(JSONReader().ReadToValue("43"));
@@ -529,13 +542,12 @@ TEST(JSONReaderTest, Reading) {
 
 TEST(JSONReaderTest, ReadFromFile) {
   FilePath path;
-  ASSERT_TRUE(PathService::Get(base::DIR_SOURCE_ROOT, &path));
-  path = path.Append(FILE_PATH_LITERAL("base"))
-             .Append(FILE_PATH_LITERAL("data"))
-             .Append(FILE_PATH_LITERAL("json"));
+  ASSERT_TRUE(PathService::Get(base::DIR_TEST_DATA, &path));
+  path = path.AppendASCII("json");
+  ASSERT_TRUE(base::PathExists(path));
 
   std::string input;
-  ASSERT_TRUE(file_util::ReadFileToString(
+  ASSERT_TRUE(ReadFileToString(
       path.Append(FILE_PATH_LITERAL("bom_feff.json")), &input));
 
   JSONReader reader;
@@ -547,9 +559,12 @@ TEST(JSONReaderTest, ReadFromFile) {
 // Tests that the root of a JSON object can be deleted safely while its
 // children outlive it.
 TEST(JSONReaderTest, StringOptimizations) {
-  Value* dict_literals[2] = {0};
-  Value* dict_strings[2] = {0};
-  Value* list_values[2] = {0};
+  scoped_ptr<Value> dict_literal_0;
+  scoped_ptr<Value> dict_literal_1;
+  scoped_ptr<Value> dict_string_0;
+  scoped_ptr<Value> dict_string_1;
+  scoped_ptr<Value> list_value_0;
+  scoped_ptr<Value> list_value_1;
 
   {
     scoped_ptr<Value> root(JSONReader::Read(
@@ -576,43 +591,36 @@ TEST(JSONReaderTest, StringOptimizations) {
     ASSERT_TRUE(root_dict->GetDictionary("test", &dict));
     ASSERT_TRUE(root_dict->GetList("list", &list));
 
-    EXPECT_TRUE(dict->Remove("foo", &dict_literals[0]));
-    EXPECT_TRUE(dict->Remove("bar", &dict_literals[1]));
-    EXPECT_TRUE(dict->Remove("baz", &dict_strings[0]));
-    EXPECT_TRUE(dict->Remove("moo", &dict_strings[1]));
+    EXPECT_TRUE(dict->Remove("foo", &dict_literal_0));
+    EXPECT_TRUE(dict->Remove("bar", &dict_literal_1));
+    EXPECT_TRUE(dict->Remove("baz", &dict_string_0));
+    EXPECT_TRUE(dict->Remove("moo", &dict_string_1));
 
     ASSERT_EQ(2u, list->GetSize());
-    EXPECT_TRUE(list->Remove(0, &list_values[0]));
-    EXPECT_TRUE(list->Remove(0, &list_values[1]));
+    EXPECT_TRUE(list->Remove(0, &list_value_0));
+    EXPECT_TRUE(list->Remove(0, &list_value_1));
   }
 
   bool b = false;
   double d = 0;
   std::string s;
 
-  EXPECT_TRUE(dict_literals[0]->GetAsBoolean(&b));
+  EXPECT_TRUE(dict_literal_0->GetAsBoolean(&b));
   EXPECT_TRUE(b);
 
-  EXPECT_TRUE(dict_literals[1]->GetAsDouble(&d));
+  EXPECT_TRUE(dict_literal_1->GetAsDouble(&d));
   EXPECT_EQ(3.14, d);
 
-  EXPECT_TRUE(dict_strings[0]->GetAsString(&s));
+  EXPECT_TRUE(dict_string_0->GetAsString(&s));
   EXPECT_EQ("bat", s);
 
-  EXPECT_TRUE(dict_strings[1]->GetAsString(&s));
+  EXPECT_TRUE(dict_string_1->GetAsString(&s));
   EXPECT_EQ("cow", s);
 
-  EXPECT_TRUE(list_values[0]->GetAsString(&s));
+  EXPECT_TRUE(list_value_0->GetAsString(&s));
   EXPECT_EQ("a", s);
-  EXPECT_TRUE(list_values[1]->GetAsString(&s));
+  EXPECT_TRUE(list_value_1->GetAsString(&s));
   EXPECT_EQ("b", s);
-
-  delete dict_literals[0];
-  delete dict_literals[1];
-  delete dict_strings[0];
-  delete dict_strings[1];
-  delete list_values[0];
-  delete list_values[1];
 }
 
 // A smattering of invalid JSON designed to test specific portions of the

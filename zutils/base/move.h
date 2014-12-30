@@ -69,7 +69,7 @@
 // alternate conversion sequence and a constructor.  We add
 //
 //   * a private struct named "RValue"
-//   * a user-defined conversion "operator RValue&()"
+//   * a user-defined conversion "operator RValue()"
 //   * a "move constructor" and "move operator=" that take the RValue& as
 //     their sole parameter.
 //
@@ -92,8 +92,8 @@
 //
 //     public:
 //       ... API ...
-//       Foo(RValue& other);           // Move constructor.
-//       Foo& operator=(RValue& rhs);  // Move operator=
+//       Foo(RValue other);           // Move constructor.
+//       Foo& operator=(RValue rhs);  // Move operator=
 //    };
 //
 //    Foo MakeFoo();  // Function that returns a Foo.
@@ -111,31 +111,39 @@
 //
 // IMPLEMENTATION SUBTLETIES WITH RValue
 //
-// The RValue struct has subtle properties:
+// The RValue struct is just a container for a pointer back to the original
+// object. It should only ever be created as a temporary, and no external
+// class should ever declare it or use it in a parameter.
 //
-//   1) All its methods are declared, but intentionally not defined.
-//   2) It is *never* instantiated.
-//   3) It is a child of the move-only type.
+// It is tempting to want to use the RValue type in function parameters, but
+// excluding the limited usage here for the move constructor and move
+// operator=, doing so would mean that the function could take both r-values
+// and l-values equially which is unexpected.  See COMPARED To Boost.Move for
+// more details.
 //
-// (1) is a guard against accidental violation of (2).  If an instance of
-// RValue were ever created, either as a temporary, or as a copy to some
-// function parameter or field of a class, the binary will not link.
+// An alternate, and incorrect, implementation of the RValue class used by
+// Boost.Move makes RValue a fieldless child of the move-only type. RValue&
+// is then used in place of RValue in the various operators.  The RValue& is
+// "created" by doing *reinterpret_cast<RValue*>(this).  This has the appeal
+// of never creating a temporary RValue struct even with optimizations
+// disabled.  Also, by virtue of inheritance you can treat the RValue
+// reference as if it were the move-only type itself.  Unfortunately,
+// using the result of this reinterpret_cast<> is actually undefined behavior
+// due to C++98 5.2.10.7. In certain compilers (e.g., NaCl) the optimizer
+// will generate non-working code.
 //
-// This ensures that RValue can only exist as a temporary which is important
-// to avoid accidental dangling references.
+// In optimized builds, both implementations generate the same assembly so we
+// choose the one that adheres to the standard.
 //
-// (3) allows us to get around instantiations because our user-defined
-// conversion can return a downcast of this pointer.
 //
-//    operator RValue&() { return *reinterpret_cast<RValue*>(this); }
+// WHY HAVE typedef void MoveOnlyTypeForCPP03
 //
-// Because RValue does not extend the object size or add any virtual methods,
-// this type-pun is safe.
-//
-// An alternative implementation would be to make RValue into a concrete
-// struct that holds a reference to the type.  But in the non-optimized build,
-// this causes unnecessary temporaries to be made bloating the object files.
-// Also, it would then be possible to accidentally persist an RValue instance.
+// Callback<>/Bind() needs to understand movable-but-not-copyable semantics
+// to call .Pass() appropriately when it is expected to transfer the value.
+// The cryptic typedef MoveOnlyTypeForCPP03 is added to make this check
+// easy and automatic in helper templates for Callback<>/Bind().
+// See IsMoveOnlyType template and its usage in base/callback_internal.h
+// for more details.
 //
 //
 // COMPARED TO C++11
@@ -146,7 +154,7 @@
 // This emulation also has a deficiency where it uses up the single
 // user-defined conversion allowed by C++ during initialization.  This can
 // cause problems in some API edge cases.  For instance, in scoped_ptr, it is
-// impossible to make an function "void Foo(scoped_ptr<Parent> p)" accept a
+// impossible to make a function "void Foo(scoped_ptr<Parent> p)" accept a
 // value of type scoped_ptr<Child> even if you add a constructor to
 // scoped_ptr<> that would make it look like it should work.  C++11 does not
 // have this deficiency.
@@ -154,8 +162,8 @@
 //
 // COMPARED TO Boost.Move
 //
-// Our implementation is based on Boost.Move, but we keep the RValue struct
-// private to the move-only type.
+// Our implementation similar to Boost.Move, but we keep the RValue struct
+// private to the move-only type, and we don't use the reinterpret_cast<> hack.
 //
 // In Boost.Move, RValue is the boost::rv<> template.  This type can be used
 // when writing APIs like:
@@ -179,7 +187,7 @@
 // Since we have no need for writing such APIs yet, our implementation keeps
 // RValue private and uses a .Pass() method to do the conversion instead of
 // trying to write a version of "std::move()." Writing an API like std::move()
-// would require the RValue structs to be public.
+// would require the RValue struct to be public.
 //
 //
 // CAVEATS
@@ -195,17 +203,16 @@
 //
 #define MOVE_ONLY_TYPE_FOR_CPP_03(type, rvalue_type) \
  private: \
-  struct rvalue_type : public type { \
-    rvalue_type(); \
-    ~rvalue_type(); \
-    rvalue_type(const rvalue_type&); \
-    void operator=(const rvalue_type&); \
+  struct rvalue_type { \
+    explicit rvalue_type(type* object) : object(object) {} \
+    type* object; \
   }; \
   type(type&); \
   void operator=(type&); \
  public: \
-  operator rvalue_type&() { return *reinterpret_cast<rvalue_type*>(this); } \
-  type Pass() { return type(*reinterpret_cast<rvalue_type*>(this)); } \
+  operator rvalue_type() { return rvalue_type(this); } \
+  type Pass() { return type(rvalue_type(this)); } \
+  typedef void MoveOnlyTypeForCPP03; \
  private:
 
 #endif  // BASE_MOVE_H_

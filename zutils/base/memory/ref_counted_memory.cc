@@ -4,9 +4,18 @@
 
 #include "base/memory/ref_counted_memory.h"
 
+#include <stdlib.h>
+
 #include "base/logging.h"
 
 namespace base {
+
+bool RefCountedMemory::Equals(
+    const scoped_refptr<RefCountedMemory>& other) const {
+  return other.get() &&
+         size() == other->size() &&
+         (memcmp(front(), other->front(), size()) == 0);
+}
 
 RefCountedMemory::RefCountedMemory() {}
 
@@ -27,6 +36,9 @@ RefCountedBytes::RefCountedBytes() {}
 RefCountedBytes::RefCountedBytes(const std::vector<unsigned char>& initializer)
     : data_(initializer) {
 }
+
+RefCountedBytes::RefCountedBytes(const unsigned char* p, size_t size)
+    : data_(p, p + size) {}
 
 RefCountedBytes* RefCountedBytes::TakeVector(
     std::vector<unsigned char>* to_destroy) {
@@ -65,6 +77,24 @@ const unsigned char* RefCountedString::front() const {
 
 size_t RefCountedString::size() const {
   return data_.size();
+}
+
+RefCountedMallocedMemory::RefCountedMallocedMemory(
+    void* data, size_t length)
+    : data_(reinterpret_cast<unsigned char*>(data)), length_(length) {
+  DCHECK(data || length == 0);
+}
+
+const unsigned char* RefCountedMallocedMemory::front() const {
+  return length_ ? data_ : NULL;
+}
+
+size_t RefCountedMallocedMemory::size() const {
+  return length_;
+}
+
+RefCountedMallocedMemory::~RefCountedMallocedMemory() {
+  free(data_);
 }
 
 }  //  namespace base

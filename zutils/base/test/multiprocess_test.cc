@@ -9,48 +9,51 @@
 
 namespace base {
 
-MultiProcessTest::MultiProcessTest() {
-}
-
-ProcessHandle MultiProcessTest::SpawnChild(const std::string& procname,
-                                           bool debug_on_start) {
-  FileHandleMappingVector empty_file_list;
-  return SpawnChildImpl(procname, empty_file_list, debug_on_start);
-}
-
-#if defined(OS_POSIX)
-ProcessHandle MultiProcessTest::SpawnChild(
-    const std::string& procname,
-    const FileHandleMappingVector& fds_to_map,
-    bool debug_on_start) {
-  return SpawnChildImpl(procname, fds_to_map, debug_on_start);
-}
-#endif
-
-CommandLine MultiProcessTest::MakeCmdLine(const std::string& procname,
-                                          bool debug_on_start) {
-  CommandLine cl(*CommandLine::ForCurrentProcess());
-  cl.AppendSwitchASCII(switches::kTestChildProcess, procname);
-  if (debug_on_start)
-    cl.AppendSwitch(switches::kDebugOnStart);
-  return cl;
-}
-
 #if !defined(OS_ANDROID)
-ProcessHandle MultiProcessTest::SpawnChildImpl(
+ProcessHandle SpawnMultiProcessTestChild(
     const std::string& procname,
-    const FileHandleMappingVector& fds_to_map,
-    bool debug_on_start) {
+    const CommandLine& base_command_line,
+    const LaunchOptions& options) {
+  CommandLine command_line(base_command_line);
+  // TODO(viettrungluu): See comment above |MakeCmdLine()| in the header file.
+  // This is a temporary hack, since |MakeCmdLine()| has to provide a full
+  // command line.
+  if (!command_line.HasSwitch(switches::kTestChildProcess))
+    command_line.AppendSwitchASCII(switches::kTestChildProcess, procname);
+
   ProcessHandle handle = kNullProcessHandle;
-  base::LaunchOptions options;
-#if defined(OS_WIN)
-  options.start_hidden = true;
-#else
-  options.fds_to_remap = &fds_to_map;
-#endif
-  base::LaunchProcess(MakeCmdLine(procname, debug_on_start), options, &handle);
+  LaunchProcess(command_line, options, &handle);
   return handle;
 }
 #endif  // !defined(OS_ANDROID)
+
+CommandLine GetMultiProcessTestChildBaseCommandLine() {
+  return *CommandLine::ForCurrentProcess();
+}
+
+// MultiProcessTest ------------------------------------------------------------
+
+MultiProcessTest::MultiProcessTest() {
+}
+
+ProcessHandle MultiProcessTest::SpawnChild(const std::string& procname) {
+  LaunchOptions options;
+#if defined(OS_WIN)
+  options.start_hidden = true;
+#endif
+  return SpawnChildWithOptions(procname, options);
+}
+
+ProcessHandle MultiProcessTest::SpawnChildWithOptions(
+    const std::string& procname,
+    const LaunchOptions& options) {
+  return SpawnMultiProcessTestChild(procname, MakeCmdLine(procname), options);
+}
+
+CommandLine MultiProcessTest::MakeCmdLine(const std::string& procname) {
+  CommandLine command_line = GetMultiProcessTestChildBaseCommandLine();
+  command_line.AppendSwitchASCII(switches::kTestChildProcess, procname);
+  return command_line;
+}
 
 }  // namespace base

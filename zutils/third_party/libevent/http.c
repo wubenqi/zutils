@@ -25,17 +25,9 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef WIN32
-#include <winsock2.h>
-#include <ws2tcpip.h>
-//#include <WS2tcpip2.h>
-#endif
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
-
-
 
 #ifdef HAVE_SYS_PARAM_H
 #include <sys/param.h>
@@ -63,6 +55,10 @@
 #ifndef WIN32
 #include <netinet/in.h>
 #include <netdb.h>
+#endif
+
+#ifdef WIN32
+#include <winsock2.h>
 #endif
 
 #include <assert.h>
@@ -103,10 +99,8 @@
 #define NI_MAXSERV 32
 #define NI_MAXHOST 1025
 
-#ifndef WIN32
 #define NI_NUMERICHOST 1
 #define NI_NUMERICSERV 2
-#endif
 
 static int
 fake_getnameinfo(const struct sockaddr *sa, size_t salen, char *host, 
@@ -148,7 +142,6 @@ fake_getnameinfo(const struct sockaddr *sa, size_t salen, char *host,
 #endif
 
 #ifndef HAVE_GETADDRINFO
-#ifndef WIN32
 struct addrinfo {
 	int ai_family;
 	int ai_socktype;
@@ -157,7 +150,6 @@ struct addrinfo {
 	struct sockaddr *ai_addr;
 	struct addrinfo *ai_next;
 };
-#endif
 static int
 fake_getaddrinfo(const char *hostname, struct addrinfo *ai)
 {

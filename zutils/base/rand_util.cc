@@ -6,11 +6,12 @@
 
 #include <math.h>
 
+#include <algorithm>
 #include <limits>
 
 #include "base/basictypes.h"
 #include "base/logging.h"
-#include "base/string_util.h"
+#include "base/strings/string_util.h"
 
 namespace base {
 
@@ -58,16 +59,6 @@ uint64 RandGenerator(uint64 range) {
   } while (value > max_acceptable_value);
 
   return value % range;
-}
-
-void RandBytes(void* output, size_t output_length) {
-  uint64 random_int;
-  size_t random_int_size = sizeof(random_int);
-  for (size_t i = 0; i < output_length; i += random_int_size) {
-    random_int = base::RandUint64();
-    size_t copy_count = std::min(output_length - i, random_int_size);
-    memcpy(((uint8*)output) + i, &random_int, copy_count);
-  }
 }
 
 std::string RandBytesAsString(size_t length) {

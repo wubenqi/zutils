@@ -25,7 +25,6 @@ enum {
   DIR_START_MENU,         // Usually "C:\Documents and Settings\<user>\
                           // Start Menu\Programs"
   DIR_APP_DATA,           // Application Data directory under the user profile.
-  DIR_PROFILE,            // Usually "C:\Documents and settings\<user>.
   DIR_LOCAL_APP_DATA_LOW, // Local AppData directory for low integrity level.
   DIR_LOCAL_APP_DATA,     // "Local Settings\Application Data" directory under
                           // the user profile.
@@ -38,8 +37,9 @@ enum {
   DIR_COMMON_DESKTOP,     // Directory for the common desktop (visible
                           // on all user's Desktop).
   DIR_USER_QUICK_LAUNCH,  // Directory for the quick launch shortcuts.
-  DIR_DEFAULT_USER_QUICK_LAUNCH,  // Directory for the quick launch shortcuts
-                                  // of the Default user.
+  DIR_TASKBAR_PINS,       // Directory for the shortcuts pinned to taskbar via
+                          // base::win::TaskbarPinShortcutLink().
+  DIR_WINDOWS_FONTS,      // Usually C:\Windows\Fonts.
 
   PATH_WIN_END
 };

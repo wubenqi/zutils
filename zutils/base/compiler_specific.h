@@ -40,19 +40,6 @@
 #define MSVC_DISABLE_OPTIMIZE() __pragma(optimize("", off))
 #define MSVC_ENABLE_OPTIMIZE() __pragma(optimize("", on))
 
-// Allows |this| to be passed as an argument in constructor initializer lists.
-// This uses push/pop instead of the seemingly simpler suppress feature to avoid
-// having the warning be disabled for more than just |code|.
-//
-// Example usage:
-// Foo::Foo() : x(NULL), ALLOW_THIS_IN_INITIALIZER_LIST(y(this)), z(3) {}
-//
-// Compiler warning C4355: 'this': used in base member initializer list:
-// http://msdn.microsoft.com/en-us/library/3c594ae3(VS.80).aspx
-#define ALLOW_THIS_IN_INITIALIZER_LIST(code) MSVC_PUSH_DISABLE_WARNING(4355) \
-                                             code \
-                                             MSVC_POP_WARNING()
-
 // Allows exporting a class that inherits from a non-exported base class.
 // This uses suppress instead of push/pop because the delimiter after the
 // declaration (either "," or "{") has to be placed before the pop macro.
@@ -76,11 +63,32 @@
 #define MSVC_POP_WARNING()
 #define MSVC_DISABLE_OPTIMIZE()
 #define MSVC_ENABLE_OPTIMIZE()
-#define ALLOW_THIS_IN_INITIALIZER_LIST(code) code
 #define NON_EXPORTED_BASE(code) code
 
 #endif  // COMPILER_MSVC
 
+
+// The C++ standard requires that static const members have an out-of-class
+// definition (in a single compilation unit), but MSVC chokes on this (when
+// language extensions, which are required, are enabled). (You're only likely to
+// notice the need for a definition if you take the address of the member or,
+// more commonly, pass it to a function that takes it as a reference argument --
+// probably an STL function.) This macro makes MSVC do the right thing. See
+// http://msdn.microsoft.com/en-us/library/34h23df8(v=vs.100).aspx for more
+// information. Use like:
+//
+// In .h file:
+//   struct Foo {
+//     static const int kBar = 5;
+//   };
+//
+// In .cc file:
+//   STATIC_CONST_MEMBER_DEFINITION const int Foo::kBar;
+#if defined(COMPILER_MSVC)
+#define STATIC_CONST_MEMBER_DEFINITION __declspec(selectany)
+#else
+#define STATIC_CONST_MEMBER_DEFINITION
+#endif
 
 // Annotate a variable indicating it's ok if the variable is not used.
 // (Typically used to silence a compiler warning when the assignment
@@ -129,12 +137,29 @@
 // method in the parent class.
 // Use like:
 //   virtual void foo() OVERRIDE;
-#if defined(COMPILER_MSVC)
+#if defined(__clang__) || defined(COMPILER_MSVC)
 #define OVERRIDE override
-#elif defined(__clang__)
+#elif defined(COMPILER_GCC) && __cplusplus >= 201103 && \
+      (__GNUC__ * 10000 + __GNUC_MINOR__ * 100) >= 40700
+// GCC 4.7 supports explicit virtual overrides when C++11 support is enabled.
 #define OVERRIDE override
 #else
 #define OVERRIDE
+#endif
+
+// Annotate a virtual method indicating that subclasses must not override it,
+// or annotate a class to indicate that it cannot be subclassed.
+// Use like:
+//   virtual void foo() FINAL;
+//   class B FINAL : public A {};
+#if defined(__clang__) || defined(COMPILER_MSVC)
+#define FINAL final
+#elif defined(COMPILER_GCC) && __cplusplus >= 201103 && \
+      (__GNUC__ * 10000 + __GNUC_MINOR__ * 100) >= 40700
+// GCC 4.7 supports explicit virtual overrides when C++11 support is enabled.
+#define FINAL final
+#else
+#define FINAL
 #endif
 
 // Annotate a function indicating the caller must examine the return value.
@@ -165,5 +190,35 @@
 #define WPRINTF_FORMAT(format_param, dots_param)
 // If available, it would look like:
 //   __attribute__((format(wprintf, format_param, dots_param)))
+
+// MemorySanitizer annotations.
+#if defined(MEMORY_SANITIZER) && !defined(OS_NACL)
+#include <sanitizer/msan_interface.h>
+
+// Mark a memory region fully initialized.
+// Use this to annotate code that deliberately reads uninitialized data, for
+// example a GC scavenging root set pointers from the stack.
+#define MSAN_UNPOISON(p, s)  __msan_unpoison(p, s)
+#else  // MEMORY_SANITIZER
+#define MSAN_UNPOISON(p, s)
+#endif  // MEMORY_SANITIZER
+
+// Macro useful for writing cross-platform function pointers.
+#if !defined(CDECL)
+#if defined(OS_WIN)
+#define CDECL __cdecl
+#else  // defined(OS_WIN)
+#define CDECL
+#endif  // defined(OS_WIN)
+#endif  // !defined(CDECL)
+
+// Macro for hinting that an expression is likely to be false.
+#if !defined(UNLIKELY)
+#if defined(COMPILER_GCC)
+#define UNLIKELY(x) __builtin_expect(!!(x), 0)
+#else
+#define UNLIKELY(x) (x)
+#endif  // defined(COMPILER_GCC)
+#endif  // !defined(UNLIKELY)
 
 #endif  // BASE_COMPILER_SPECIFIC_H_

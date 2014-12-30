@@ -23,13 +23,18 @@
 //
 // The templated Callback class is a generalized function object. Together
 // with the Bind() function in bind.h, they provide a type-safe method for
-// performing currying of arguments, and creating a "closure."
+// performing partial application of functions.
 //
-// In programming languages, a closure is a first-class function where all its
-// parameters have been bound (usually via currying).  Closures are well
-// suited for representing, and passing around a unit of delayed execution.
-// They are used in Chromium code to schedule tasks on different MessageLoops.
+// Partial application (or "currying") is the process of binding a subset of
+// a function's arguments to produce another function that takes fewer
+// arguments. This can be used to pass around a unit of delayed execution,
+// much like lexical closures are used in other languages. For example, it
+// is used in Chromium code to schedule tasks on different MessageLoops.
 //
+// A callback with no unbound input parameters (base::Callback<void(void)>)
+// is called a base::Closure. Note that this is NOT the same as what other
+// languages refer to as a closure -- it does not retain a reference to its
+// enclosing environment.
 //
 // MEMORY MANAGEMENT AND PASSING
 //
@@ -138,8 +143,8 @@
 //
 //   base::Bind(&MyClass::Foo, GetWeakPtr());
 //
-//   The callback will not be issued if the object is destroyed at the time
-//   it's issued. DANGER: weak pointers are not threadsafe, so don't use this
+//   The callback will not be run if the object has already been destroyed.
+//   DANGER: weak pointers are not threadsafe, so don't use this
 //   when passing between threads!
 //
 // BINDING A CLASS METHOD WITH MANUAL LIFETIME MANAGEMENT
@@ -209,11 +214,16 @@
 //
 // PASSING PARAMETERS BY REFERENCE
 //
-//   void foo(int arg) { cout << arg << endl }
+//   Const references are *copied* unless ConstRef is used. Example:
+//
+//   void foo(const int& arg) { printf("%d %p\n", arg, &arg); }
 //   int n = 1;
+//   base::Closure has_copy = base::Bind(&foo, n);
 //   base::Closure has_ref = base::Bind(&foo, base::ConstRef(n));
 //   n = 2;
-//   has_ref.Run();  // Prints "2"
+//   foo(n);                        // Prints "2 0xaaaaaaaaaaaa"
+//   has_copy.Run();                // Prints "1 0xbbbbbbbbbbbb"
+//   has_ref.Run();                 // Prints "2 0xaaaaaaaaaaaa"
 //
 //   Normally parameters are copied in the closure. DANGER: ConstRef stores a
 //   const reference instead, referencing the original parameter. This means
@@ -269,6 +279,8 @@
 //
 // By default Bind() will store copies of all bound parameters, and attempt
 // to refcount a target object if the function being bound is a class method.
+// These copies are created even if the function takes parameters as const
+// references. (Binding to non-const references is forbidden, see bind.h.)
 //
 // To change this behavior, we introduce a set of argument wrappers
 // (e.g., Unretained(), and ConstRef()).  These are simple container templates
@@ -749,7 +761,7 @@ class Callback<R(A1, A2, A3, A4, A5, A6, A7)> : public internal::CallbackBase {
 };
 
 
-// Syntactic sugar to make Callbacks<void(void)> easier to declare since it
+// Syntactic sugar to make Callback<void(void)> easier to declare since it
 // will be used in a lot of APIs with delayed execution.
 typedef Callback<void(void)> Closure;
 

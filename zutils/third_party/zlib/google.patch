@@ -1,3 +1,17 @@
+diff -ru zlib-1.2.5/gzlib.c zlib/gzlib.c
+--- zlib-1.2.5/gzlib.c
++++ zlib/gzlib.c
+@@ -5,7 +5,9 @@
+ 
+ #include "gzguts.h"
+ 
+-#if defined(_LARGEFILE64_SOURCE) && _LFS64_LARGEFILE-0
++#if defined(_WIN32)
++#  define LSEEK _lseeki64
++#elif defined(_LARGEFILE64_SOURCE) && _LFS64_LARGEFILE-0
+ #  define LSEEK lseek64
+ #else
+ #  define LSEEK lseek
 diff -ru zlib-1.2.5/mozzconf.h zlib/mozzconf.h
 --- zlib-1.2.5/mozzconf.h	2011-12-15 18:10:49.000000000 +0800
 +++ zlib/mozzconf.h	2011-12-16 16:08:00.000000000 +0800
@@ -183,27 +197,44 @@ diff -ru zlib-1.2.5/zconf.h zlib/zconf.h
  /*
   * If you *really* need a unique prefix for all types and library functions,
   * compile with -DZ_PREFIX. The "standard" zlib should be compiled without it.
-diff -ru zlib-1.2.5/zlib.h zlib/zlib.h
+@@ -359,7 +359,7 @@ typedef uLong FAR uLongf;
+    typedef Byte       *voidp;
+ #endif
+ 
+-#ifdef HAVE_UNISTD_H    /* may be set to #if 1 by ./configure */
++#if !defined(_WIN32)
+ #  define Z_HAVE_UNISTD_H
+ #endif
+ 
 --- zlib-1.2.5/zlib.h	2010-04-20 12:12:48.000000000 +0800
-+++ zlib/zlib.h	2011-12-16 16:08:48.000000000 +0800
-@@ -1572,12 +1572,14 @@
++++ zlib/zlib.h	2013-04-06 16:08:48.000000000 +0800
+@@ -1572,11 +1572,29 @@
  #endif
  
  #if !defined(ZLIB_INTERNAL) && _FILE_OFFSET_BITS-0 == 64 && _LFS64_LARGEFILE-0
--#  define gzopen gzopen64
--#  define gzseek gzseek64
--#  define gztell gztell64
--#  define gzoffset gzoffset64
--#  define adler32_combine adler32_combine64
--#  define crc32_combine crc32_combine64
-+#  if !defined(MOZZCONF_H)
-+#    define gzopen gzopen64
-+#    define gzseek gzseek64
-+#    define gztell gztell64
-+#    define gzoffset gzoffset64
-+#    define adler32_combine adler32_combine64
-+#    define crc32_combine crc32_combine64
++#  ifdef gzopen
++#    undef gzopen
 +#  endif
+ #  define gzopen gzopen64
++#  ifdef gzseek
++#    undef gzseek
++#  endif
+ #  define gzseek gzseek64
++#  ifdef gztell
++#    undef gztell
++#  endif
+ #  define gztell gztell64
++#  ifdef gzoffset
++#    undef gzoffset
++#  endif
+ #  define gzoffset gzoffset64
++#  ifdef adler32_combine
++#    undef adler32_combine
++#  endif
+ #  define adler32_combine adler32_combine64
++#  ifdef crc32_combine
++#    undef crc32_combine
++#  endif
+ #  define crc32_combine crc32_combine64
  #  ifdef _LARGEFILE64_SOURCE
       ZEXTERN gzFile ZEXPORT gzopen64 OF((const char *, const char *));
-      ZEXTERN z_off_t ZEXPORT gzseek64 OF((gzFile, z_off_t, int));

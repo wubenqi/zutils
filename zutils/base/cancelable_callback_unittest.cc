@@ -7,7 +7,8 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/memory/ref_counted.h"
-#include "base/message_loop.h"
+#include "base/message_loop/message_loop.h"
+#include "base/run_loop.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace base {
@@ -158,24 +159,22 @@ TEST(CancelableCallbackTest, IsNull) {
 // CancelableCallback posted to a MessageLoop with PostTask.
 //  - Callbacks posted to a MessageLoop can be cancelled.
 TEST(CancelableCallbackTest, PostTask) {
-  MessageLoop loop(MessageLoop::TYPE_DEFAULT);
+  MessageLoop loop;
 
   int count = 0;
   CancelableClosure cancelable(base::Bind(&Increment,
                                            base::Unretained(&count)));
 
   MessageLoop::current()->PostTask(FROM_HERE, cancelable.callback());
-  MessageLoop::current()->PostTask(FROM_HERE, MessageLoop::QuitClosure());
-  MessageLoop::current()->Run();
+  RunLoop().RunUntilIdle();
 
   EXPECT_EQ(1, count);
 
   MessageLoop::current()->PostTask(FROM_HERE, cancelable.callback());
-  MessageLoop::current()->PostTask(FROM_HERE, MessageLoop::QuitClosure());
 
   // Cancel before running the message loop.
   cancelable.Cancel();
-  MessageLoop::current()->Run();
+  RunLoop().RunUntilIdle();
 
   // Callback never ran due to cancellation; count is the same.
   EXPECT_EQ(1, count);

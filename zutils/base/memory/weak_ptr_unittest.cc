@@ -7,8 +7,9 @@
 #include <string>
 
 #include "base/bind.h"
+#include "base/debug/leak_annotations.h"
 #include "base/memory/scoped_ptr.h"
-#include "base/message_loop.h"
+#include "base/message_loop/message_loop.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/threading/thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -40,12 +41,19 @@ class OffThreadObjectCreator {
 struct Base {
   std::string member;
 };
-struct Derived : Base {};
+struct Derived : public Base {};
 
-struct Target : SupportsWeakPtr<Target> {};
-struct DerivedTarget : Target {};
+struct TargetBase {};
+struct Target : public TargetBase, public SupportsWeakPtr<Target> {
+  virtual ~Target() {}
+};
+struct DerivedTarget : public Target {};
 struct Arrow {
   WeakPtr<Target> target;
+};
+struct TargetWithFactory : public Target {
+  TargetWithFactory() : factory(this) {}
+  WeakPtrFactory<Target> factory;
 };
 
 // Helper class to create and destroy weak pointer copies
@@ -81,6 +89,24 @@ class BackgroundThread : public Thread {
     message_loop()->PostTask(
         FROM_HERE,
         base::Bind(&BackgroundThread::DoDeleteTarget, object, &completion));
+    completion.Wait();
+  }
+
+  void CopyAndAssignArrow(Arrow* object) {
+    WaitableEvent completion(true, false);
+    message_loop()->PostTask(
+        FROM_HERE,
+        base::Bind(&BackgroundThread::DoCopyAndAssignArrow,
+                   object, &completion));
+    completion.Wait();
+  }
+
+  void CopyAndAssignArrowBase(Arrow* object) {
+    WaitableEvent completion(true, false);
+    message_loop()->PostTask(
+        FROM_HERE,
+        base::Bind(&BackgroundThread::DoCopyAndAssignArrowBase,
+                   object, &completion));
     completion.Wait();
   }
 
@@ -131,6 +157,25 @@ class BackgroundThread : public Thread {
     completion->Signal();
   }
 
+  static void DoCopyAndAssignArrow(Arrow* object, WaitableEvent* completion) {
+    // Copy constructor.
+    Arrow a = *object;
+    // Assignment operator.
+    *object = a;
+    completion->Signal();
+  }
+
+  static void DoCopyAndAssignArrowBase(
+      Arrow* object,
+      WaitableEvent* completion) {
+    // Copy constructor.
+    WeakPtr<TargetBase> b = object->target;
+    // Assignment operator.
+    WeakPtr<TargetBase> c;
+    c = object->target;
+    completion->Signal();
+  }
+
   static void DoDeleteArrow(Arrow* object, WaitableEvent* completion) {
     delete object;
     completion->Signal();
@@ -151,7 +196,7 @@ TEST(WeakPtrFactoryTest, Comparison) {
   WeakPtrFactory<int> factory(&data);
   WeakPtr<int> ptr = factory.GetWeakPtr();
   WeakPtr<int> ptr2 = ptr;
-  EXPECT_EQ(ptr, ptr2);
+  EXPECT_EQ(ptr.get(), ptr2.get());
 }
 
 TEST(WeakPtrFactoryTest, OutOfScope) {
@@ -232,6 +277,16 @@ TEST(WeakPtrTest, InvalidateWeakPtrs) {
   factory.InvalidateWeakPtrs();
   EXPECT_EQ(NULL, ptr.get());
   EXPECT_FALSE(factory.HasWeakPtrs());
+
+  // Test that the factory can create new weak pointers after a
+  // InvalidateWeakPtrs call, and they remain valid until the next
+  // InvalidateWeakPtrs call.
+  WeakPtr<int> ptr2 = factory.GetWeakPtr();
+  EXPECT_EQ(&data, ptr2.get());
+  EXPECT_TRUE(factory.HasWeakPtrs());
+  factory.InvalidateWeakPtrs();
+  EXPECT_EQ(NULL, ptr2.get());
+  EXPECT_FALSE(factory.HasWeakPtrs());
 }
 
 TEST(WeakPtrTest, HasWeakPtrs) {
@@ -297,43 +352,54 @@ TEST(WeakPtrTest, MoveOwnershipImplicitly) {
   background.DeleteArrow(arrow);
 }
 
-TEST(WeakPtrTest, MoveOwnershipExplicitlyObjectNotReferenced) {
-  // Case 1: The target is not bound to any thread yet. So calling
-  // DetachFromThread() is a no-op.
-  Target target;
-  target.DetachFromThread();
-
-  // Case 2: The target is bound to main thread but no WeakPtr is pointing to
-  // it. In this case, it will be re-bound to any thread trying to get a
-  // WeakPtr pointing to it. So detach function call is again no-op.
-  {
-    WeakPtr<Target> weak_ptr = target.AsWeakPtr();
-  }
-  target.DetachFromThread();
-}
-
-TEST(WeakPtrTest, MoveOwnershipExplicitly) {
+TEST(WeakPtrTest, MoveOwnershipOfUnreferencedObject) {
   BackgroundThread background;
   background.Start();
 
   Arrow* arrow;
   {
     Target target;
-    // Background thread creates WeakPtr(and implicitly owns the object).
+    // Background thread creates WeakPtr.
     background.CreateArrowFromTarget(&arrow, &target);
+
+    // Bind to background thread.
     EXPECT_EQ(&target, background.DeRef(arrow));
 
-    // Detach from background thread.
-    target.DetachFromThread();
+    // Release the only WeakPtr.
+    arrow->target.reset();
+
+    // Now we should be able to create a new reference from this thread.
+    arrow->target = target.AsWeakPtr();
 
     // Re-bind to main thread.
     EXPECT_EQ(&target, arrow->target.get());
 
-    // Main thread can now delete the target.
+    // And the main thread can now delete the target.
   }
 
-  // WeakPtr can be deleted on non-owner thread.
-  background.DeleteArrow(arrow);
+  delete arrow;
+}
+
+TEST(WeakPtrTest, MoveOwnershipAfterInvalidate) {
+  BackgroundThread background;
+  background.Start();
+
+  Arrow arrow;
+  scoped_ptr<TargetWithFactory> target(new TargetWithFactory);
+
+  // Bind to main thread.
+  arrow.target = target->factory.GetWeakPtr();
+  EXPECT_EQ(target.get(), arrow.target.get());
+
+  target->factory.InvalidateWeakPtrs();
+  EXPECT_EQ(NULL, arrow.target.get());
+
+  arrow.target = target->factory.GetWeakPtr();
+  // Re-bind to background thread.
+  EXPECT_EQ(target.get(), background.DeRef(&arrow));
+
+  // And the background thread can now delete the target.
+  background.DeleteTarget(target.release());
 }
 
 TEST(WeakPtrTest, MainThreadRefOutlivesBackgroundThreadRef) {
@@ -351,7 +417,7 @@ TEST(WeakPtrTest, MainThreadRefOutlivesBackgroundThreadRef) {
 
   Arrow* arrow_copy;
   background.CreateArrowFromArrow(&arrow_copy, &arrow);
-  EXPECT_EQ(arrow_copy->target, &target);
+  EXPECT_EQ(arrow_copy->target.get(), &target);
   background.DeleteArrow(arrow_copy);
 }
 
@@ -370,7 +436,7 @@ TEST(WeakPtrTest, BackgroundThreadRefOutlivesMainThreadRef) {
     arrow.target = target.AsWeakPtr();
     background.CreateArrowFromArrow(&arrow_copy, &arrow);
   }
-  EXPECT_EQ(arrow_copy->target, &target);
+  EXPECT_EQ(arrow_copy->target.get(), &target);
   background.DeleteArrow(arrow_copy);
 }
 
@@ -391,6 +457,34 @@ TEST(WeakPtrTest, OwnerThreadDeletesObject) {
   }
   EXPECT_EQ(NULL, arrow_copy->target.get());
   background.DeleteArrow(arrow_copy);
+}
+
+TEST(WeakPtrTest, NonOwnerThreadCanCopyAndAssignWeakPtr) {
+  // Main thread creates a Target object.
+  Target target;
+  // Main thread creates an arrow referencing the Target.
+  Arrow *arrow = new Arrow();
+  arrow->target = target.AsWeakPtr();
+
+  // Background can copy and assign arrow (as well as the WeakPtr inside).
+  BackgroundThread background;
+  background.Start();
+  background.CopyAndAssignArrow(arrow);
+  background.DeleteArrow(arrow);
+}
+
+TEST(WeakPtrTest, NonOwnerThreadCanCopyAndAssignWeakPtrBase) {
+  // Main thread creates a Target object.
+  Target target;
+  // Main thread creates an arrow referencing the Target.
+  Arrow *arrow = new Arrow();
+  arrow->target = target.AsWeakPtr();
+
+  // Background can copy and assign arrow's WeakPtr to a base class WeakPtr.
+  BackgroundThread background;
+  background.Start();
+  background.CopyAndAssignArrowBase(arrow);
+  background.DeleteArrow(arrow);
 }
 
 TEST(WeakPtrTest, NonOwnerThreadCanDeleteWeakPtr) {
@@ -436,7 +530,7 @@ TEST(WeakPtrDeathTest, WeakPtrCopyDoesNotChangeThreadBinding) {
   background.DeleteArrow(arrow_copy);
 }
 
-TEST(WeakPtrDeathTest, NonOwnerThreadDereferencesWeakPtr) {
+TEST(WeakPtrDeathTest, NonOwnerThreadDereferencesWeakPtrAfterReference) {
   // The default style "fast" does not support multi-threaded tests
   // (introduces deadlock on Linux).
   ::testing::FLAGS_gtest_death_test_style = "threadsafe";
@@ -448,6 +542,7 @@ TEST(WeakPtrDeathTest, NonOwnerThreadDereferencesWeakPtr) {
   // thread ownership can not be implicitly moved).
   Arrow arrow;
   arrow.target = target.AsWeakPtr();
+  arrow.target.get();
 
   // Background thread tries to deref target, which violates thread ownership.
   BackgroundThread background;
@@ -455,21 +550,67 @@ TEST(WeakPtrDeathTest, NonOwnerThreadDereferencesWeakPtr) {
   ASSERT_DEATH(background.DeRef(&arrow), "");
 }
 
-TEST(WeakPtrDeathTest, NonOwnerThreadDeletesObject) {
+TEST(WeakPtrDeathTest, NonOwnerThreadDeletesWeakPtrAfterReference) {
   // The default style "fast" does not support multi-threaded tests
   // (introduces deadlock on Linux).
   ::testing::FLAGS_gtest_death_test_style = "threadsafe";
 
   scoped_ptr<Target> target(new Target());
-  // Main thread creates an arrow referencing the Target (so target's thread
-  // ownership can not be implicitly moved).
+
+  // Main thread creates an arrow referencing the Target.
   Arrow arrow;
   arrow.target = target->AsWeakPtr();
 
-  // Background thread tries to delete target, which violates thread ownership.
+  // Background thread tries to deref target, binding it to the thread.
+  BackgroundThread background;
+  background.Start();
+  background.DeRef(&arrow);
+
+  // Main thread deletes Target, violating thread binding.
+  ASSERT_DEATH(target.reset(), "");
+
+  // |target.reset()| died so |target| still holds the object, so we
+  // must pass it to the background thread to teardown.
+  background.DeleteTarget(target.release());
+}
+
+TEST(WeakPtrDeathTest, NonOwnerThreadDeletesObjectAfterReference) {
+  // The default style "fast" does not support multi-threaded tests
+  // (introduces deadlock on Linux).
+  ::testing::FLAGS_gtest_death_test_style = "threadsafe";
+
+  scoped_ptr<Target> target(new Target());
+
+  // Main thread creates an arrow referencing the Target, and references it, so
+  // that it becomes bound to the thread.
+  Arrow arrow;
+  arrow.target = target->AsWeakPtr();
+  arrow.target.get();
+
+  // Background thread tries to delete target, volating thread binding.
   BackgroundThread background;
   background.Start();
   ASSERT_DEATH(background.DeleteTarget(target.release()), "");
+}
+
+TEST(WeakPtrDeathTest, NonOwnerThreadReferencesObjectAfterDeletion) {
+  // The default style "fast" does not support multi-threaded tests
+  // (introduces deadlock on Linux).
+  ::testing::FLAGS_gtest_death_test_style = "threadsafe";
+
+  scoped_ptr<Target> target(new Target());
+
+  // Main thread creates an arrow referencing the Target.
+  Arrow arrow;
+  arrow.target = target->AsWeakPtr();
+
+  // Background thread tries to delete target, binding the object to the thread.
+  BackgroundThread background;
+  background.Start();
+  background.DeleteTarget(target.release());
+
+  // Main thread attempts to dereference the target, violating thread binding.
+  ASSERT_DEATH(arrow.target.get(), "");
 }
 
 #endif

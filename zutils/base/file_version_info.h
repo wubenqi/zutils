@@ -16,9 +16,11 @@ extern "C" IMAGE_DOS_HEADER __ImageBase;
 #include <string>
 
 #include "base/base_export.h"
-#include "base/string16.h"
+#include "base/strings/string16.h"
 
+namespace base {
 class FilePath;
+}
 
 // Provides an interface for accessing the version information for a file. This
 // is the information you access when you select a file in the Windows Explorer,
@@ -38,7 +40,7 @@ class FileVersionInfo {
   // goes wrong (typically the file does not exit or cannot be opened). The
   // returned object should be deleted when you are done with it.
   BASE_EXPORT static FileVersionInfo* CreateFileVersionInfo(
-      const FilePath& file_path);
+      const base::FilePath& file_path);
 #endif  // OS_WIN || OS_MACOSX
 
 #if defined(OS_WIN)
@@ -64,21 +66,21 @@ class FileVersionInfo {
 
   // Accessors to the different version properties.
   // Returns an empty string if the property is not found.
-  virtual string16 company_name() = 0;
-  virtual string16 company_short_name() = 0;
-  virtual string16 product_name() = 0;
-  virtual string16 product_short_name() = 0;
-  virtual string16 internal_name() = 0;
-  virtual string16 product_version() = 0;
-  virtual string16 private_build() = 0;
-  virtual string16 special_build() = 0;
-  virtual string16 comments() = 0;
-  virtual string16 original_filename() = 0;
-  virtual string16 file_description() = 0;
-  virtual string16 file_version() = 0;
-  virtual string16 legal_copyright() = 0;
-  virtual string16 legal_trademarks() = 0;
-  virtual string16 last_change() = 0;
+  virtual base::string16 company_name() = 0;
+  virtual base::string16 company_short_name() = 0;
+  virtual base::string16 product_name() = 0;
+  virtual base::string16 product_short_name() = 0;
+  virtual base::string16 internal_name() = 0;
+  virtual base::string16 product_version() = 0;
+  virtual base::string16 private_build() = 0;
+  virtual base::string16 special_build() = 0;
+  virtual base::string16 comments() = 0;
+  virtual base::string16 original_filename() = 0;
+  virtual base::string16 file_description() = 0;
+  virtual base::string16 file_version() = 0;
+  virtual base::string16 legal_copyright() = 0;
+  virtual base::string16 legal_trademarks() = 0;
+  virtual base::string16 last_change() = 0;
   virtual bool is_official_build() = 0;
 };
 

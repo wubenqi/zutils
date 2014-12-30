@@ -9,6 +9,7 @@
 
 #include "base/atomicops.h"
 #include "base/base_export.h"
+#include "base/basictypes.h"
 #include "base/compiler_specific.h"
 
 // A helper class alongside macros to be used to verify assumptions about thread
@@ -144,7 +145,7 @@ struct BASE_EXPORT DCheckAsserter : public AsserterBase {
 class BASE_EXPORT ThreadCollisionWarner {
  public:
   // The parameter asserter is there only for test purpose
-  ThreadCollisionWarner(AsserterBase* asserter = new DCheckAsserter())
+  explicit ThreadCollisionWarner(AsserterBase* asserter = new DCheckAsserter())
       : valid_thread_id_(0),
         counter_(0),
         asserter_(asserter) {}

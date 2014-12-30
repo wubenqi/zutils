@@ -9,13 +9,12 @@
 
 #include "base/compiler_specific.h"
 #include "base/memory/weak_ptr.h"
-#include "base/message_loop.h"
+#include "base/message_loop/message_loop.h"
+#include "base/run_loop.h"
 #include "base/threading/platform_thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-using base::PlatformThread;
-using base::Time;
-
+namespace base {
 namespace {
 
 class Foo {
@@ -107,7 +106,7 @@ class AddRemoveThread : public PlatformThread::Delegate,
         count_observes_(0),
         count_addtask_(0),
         do_notifies_(notify),
-        ALLOW_THIS_IN_INITIALIZER_LIST(weak_factory_(this)) {
+        weak_factory_(this) {
   }
 
   virtual ~AddRemoveThread() {
@@ -151,7 +150,7 @@ class AddRemoveThread : public PlatformThread::Delegate,
   }
 
   void Quit() {
-    loop_->PostTask(FROM_HERE, MessageLoop::QuitClosure());
+    loop_->PostTask(FROM_HERE, MessageLoop::QuitWhenIdleClosure());
   }
 
   virtual void Observe(int x) OVERRIDE {
@@ -223,14 +222,14 @@ TEST(ObserverListThreadSafeTest, BasicTest) {
   observer_list->AddObserver(&b);
 
   observer_list->Notify(&Foo::Observe, 10);
-  loop.RunAllPending();
+  RunLoop().RunUntilIdle();
 
   observer_list->AddObserver(&evil);
   observer_list->AddObserver(&c);
   observer_list->AddObserver(&d);
 
   observer_list->Notify(&Foo::Observe, 10);
-  loop.RunAllPending();
+  RunLoop().RunUntilIdle();
 
   EXPECT_EQ(20, a.total);
   EXPECT_EQ(-20, b.total);
@@ -253,7 +252,7 @@ TEST(ObserverListThreadSafeTest, RemoveObserver) {
   observer_list->RemoveObserver(&b);
 
   observer_list->Notify(&Foo::Observe, 10);
-  loop.RunAllPending();
+  RunLoop().RunUntilIdle();
 
   EXPECT_EQ(0, a.total);
   EXPECT_EQ(0, b.total);
@@ -264,7 +263,7 @@ TEST(ObserverListThreadSafeTest, RemoveObserver) {
   observer_list->RemoveObserver(&b);
 
   observer_list->Notify(&Foo::Observe, 10);
-  loop.RunAllPending();
+  RunLoop().RunUntilIdle();
 
   EXPECT_EQ(10, a.total);
   EXPECT_EQ(0, b.total);
@@ -286,7 +285,7 @@ TEST(ObserverListThreadSafeTest, WithoutMessageLoop) {
     observer_list->AddObserver(&c);
 
     observer_list->Notify(&Foo::Observe, 10);
-    loop.RunAllPending();
+    RunLoop().RunUntilIdle();
 
     EXPECT_EQ(0, a.total);
     EXPECT_EQ(0, b.total);
@@ -300,7 +299,7 @@ TEST(ObserverListThreadSafeTest, WithoutMessageLoop) {
 
     // Notify again.
     observer_list->Notify(&Foo::Observe, 20);
-    loop.RunAllPending();
+    RunLoop().RunUntilIdle();
 
     EXPECT_EQ(20, a.total);
     EXPECT_EQ(0, b.total);
@@ -314,7 +313,7 @@ TEST(ObserverListThreadSafeTest, WithoutMessageLoop) {
   MessageLoop loop;
   observer_list->AddObserver(&b);
   observer_list->Notify(&Foo::Observe, 30);
-  loop.RunAllPending();
+  RunLoop().RunUntilIdle();
 
   EXPECT_EQ(20, a.total);
   EXPECT_EQ(30, b.total);
@@ -349,7 +348,7 @@ TEST(ObserverListThreadSafeTest, RemoveMultipleObservers) {
   scoped_refptr<ObserverListThreadSafe<Foo> > observer_list(
       new ObserverListThreadSafe<Foo>);
 
-  FooRemover a(observer_list);
+  FooRemover a(observer_list.get());
   Adder b(1);
 
   observer_list->AddObserver(&a);
@@ -359,7 +358,7 @@ TEST(ObserverListThreadSafeTest, RemoveMultipleObservers) {
   a.AddFooToRemove(&b);
 
   observer_list->Notify(&Foo::Observe, 1);
-  loop.RunAllPending();
+  RunLoop().RunUntilIdle();
 }
 
 // A test driver for a multi-threaded notification loop.  Runs a number
@@ -399,7 +398,7 @@ static void ThreadSafeObserverHarness(int num_threads,
 
     observer_list->Notify(&Foo::Observe, 10);
 
-    loop.RunAllPending();
+    RunLoop().RunUntilIdle();
   }
 
   for (int index = 0; index < num_threads; index++) {
@@ -444,7 +443,7 @@ TEST(ObserverListTest, Existing) {
 
   EXPECT_TRUE(b.added);
   // B's adder should not have been notified because it was added during
-  // notificaiton.
+  // notification.
   EXPECT_EQ(0, b.adder.total);
 
   // Notify again to make sure b's adder is notified.
@@ -464,16 +463,16 @@ TEST(ObserverListThreadSafeTest, Existing) {
   observer_list->AddObserver(&b);
 
   observer_list->Notify(&Foo::Observe, 1);
-  loop.RunAllPending();
+  RunLoop().RunUntilIdle();
 
   EXPECT_TRUE(b.added);
   // B's adder should not have been notified because it was added during
-  // notificaiton.
+  // notification.
   EXPECT_EQ(0, b.adder.total);
 
   // Notify again to make sure b's adder is notified.
   observer_list->Notify(&Foo::Observe, 1);
-  loop.RunAllPending();
+  RunLoop().RunUntilIdle();
   EXPECT_EQ(1, b.adder.total);
 }
 
@@ -547,3 +546,4 @@ TEST(ObserverListTest, IteratorOutlivesList) {
 }
 
 }  // namespace
+}  // namespace base

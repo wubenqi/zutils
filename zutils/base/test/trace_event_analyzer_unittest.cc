@@ -4,6 +4,7 @@
 
 #include "base/bind.h"
 #include "base/debug/trace_event_unittest.h"
+#include "base/synchronization/waitable_event.h"
 #include "base/test/trace_event_analyzer.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -16,7 +17,9 @@ class TraceEventAnalyzerTest : public testing::Test {
  public:
   void ManualSetUp();
   void OnTraceDataCollected(
-      const scoped_refptr<base::RefCountedString>& json_events_str);
+      base::WaitableEvent* flush_complete_event,
+      const scoped_refptr<base::RefCountedString>& json_events_str,
+      bool has_more_events);
   void BeginTracing();
   void EndTracing();
 
@@ -25,28 +28,37 @@ class TraceEventAnalyzerTest : public testing::Test {
 };
 
 void TraceEventAnalyzerTest::ManualSetUp() {
-  base::debug::TraceLog::Resurrect();
   ASSERT_TRUE(base::debug::TraceLog::GetInstance());
   buffer_.SetOutputCallback(output_.GetCallback());
   output_.json_output.clear();
 }
 
 void TraceEventAnalyzerTest::OnTraceDataCollected(
-    const scoped_refptr<base::RefCountedString>& json_events_str) {
+    base::WaitableEvent* flush_complete_event,
+    const scoped_refptr<base::RefCountedString>& json_events_str,
+    bool has_more_events) {
   buffer_.AddFragment(json_events_str->data());
+  if (!has_more_events)
+    flush_complete_event->Signal();
 }
 
 void TraceEventAnalyzerTest::BeginTracing() {
   output_.json_output.clear();
   buffer_.Start();
-  base::debug::TraceLog::GetInstance()->SetEnabled(true);
+  base::debug::TraceLog::GetInstance()->SetEnabled(
+      base::debug::CategoryFilter("*"),
+      base::debug::TraceLog::RECORDING_MODE,
+      base::debug::TraceOptions());
 }
 
 void TraceEventAnalyzerTest::EndTracing() {
-  base::debug::TraceLog::GetInstance()->SetEnabled(false);
+  base::debug::TraceLog::GetInstance()->SetDisabled();
+  base::WaitableEvent flush_complete_event(false, false);
   base::debug::TraceLog::GetInstance()->Flush(
       base::Bind(&TraceEventAnalyzerTest::OnTraceDataCollected,
-                 base::Unretained(this)));
+                 base::Unretained(this),
+                 base::Unretained(&flush_complete_event)));
+  flush_complete_event.Wait();
   buffer_.Finish();
 }
 
@@ -204,16 +216,17 @@ TEST_F(TraceEventAnalyzerTest, BooleanOperators) {
 
   BeginTracing();
   {
-    TRACE_EVENT_INSTANT1("cat1", "name1", "num", 1);
-    TRACE_EVENT_INSTANT1("cat1", "name2", "num", 2);
-    TRACE_EVENT_INSTANT1("cat2", "name3", "num", 3);
-    TRACE_EVENT_INSTANT1("cat2", "name4", "num", 4);
+    TRACE_EVENT_INSTANT1("cat1", "name1", TRACE_EVENT_SCOPE_THREAD, "num", 1);
+    TRACE_EVENT_INSTANT1("cat1", "name2", TRACE_EVENT_SCOPE_THREAD, "num", 2);
+    TRACE_EVENT_INSTANT1("cat2", "name3", TRACE_EVENT_SCOPE_THREAD, "num", 3);
+    TRACE_EVENT_INSTANT1("cat2", "name4", TRACE_EVENT_SCOPE_THREAD, "num", 4);
   }
   EndTracing();
 
   scoped_ptr<TraceAnalyzer>
       analyzer(TraceAnalyzer::Create(output_.json_output));
   ASSERT_TRUE(!!analyzer.get());
+  analyzer->SetIgnoreMetadataEvents(true);
 
   TraceEventVector found;
 
@@ -289,11 +302,15 @@ TEST_F(TraceEventAnalyzerTest, ArithmeticOperators) {
   BeginTracing();
   {
     // These events are searched for:
-    TRACE_EVENT_INSTANT2("cat1", "math1", "a", 10, "b", 5);
-    TRACE_EVENT_INSTANT2("cat1", "math2", "a", 10, "b", 10);
+    TRACE_EVENT_INSTANT2("cat1", "math1", TRACE_EVENT_SCOPE_THREAD,
+                         "a", 10, "b", 5);
+    TRACE_EVENT_INSTANT2("cat1", "math2", TRACE_EVENT_SCOPE_THREAD,
+                         "a", 10, "b", 10);
     // Extra events that never match, for noise:
-    TRACE_EVENT_INSTANT2("noise", "math3", "a", 1,  "b", 3);
-    TRACE_EVENT_INSTANT2("noise", "math4", "c", 10, "d", 5);
+    TRACE_EVENT_INSTANT2("noise", "math3", TRACE_EVENT_SCOPE_THREAD,
+                         "a", 1,  "b", 3);
+    TRACE_EVENT_INSTANT2("noise", "math4", TRACE_EVENT_SCOPE_THREAD,
+                         "c", 10, "d", 5);
   }
   EndTracing();
 
@@ -345,16 +362,17 @@ TEST_F(TraceEventAnalyzerTest, StringPattern) {
 
   BeginTracing();
   {
-    TRACE_EVENT_INSTANT0("cat1", "name1");
-    TRACE_EVENT_INSTANT0("cat1", "name2");
-    TRACE_EVENT_INSTANT0("cat1", "no match");
-    TRACE_EVENT_INSTANT0("cat1", "name3x");
+    TRACE_EVENT_INSTANT0("cat1", "name1", TRACE_EVENT_SCOPE_THREAD);
+    TRACE_EVENT_INSTANT0("cat1", "name2", TRACE_EVENT_SCOPE_THREAD);
+    TRACE_EVENT_INSTANT0("cat1", "no match", TRACE_EVENT_SCOPE_THREAD);
+    TRACE_EVENT_INSTANT0("cat1", "name3x", TRACE_EVENT_SCOPE_THREAD);
   }
   EndTracing();
 
   scoped_ptr<TraceAnalyzer>
       analyzer(TraceAnalyzer::Create(output_.json_output));
   ASSERT_TRUE(analyzer.get());
+  analyzer->SetIgnoreMetadataEvents(true);
 
   TraceEventVector found;
 
@@ -375,7 +393,7 @@ TEST_F(TraceEventAnalyzerTest, StringPattern) {
 }
 
 // Test that duration queries work.
-TEST_F(TraceEventAnalyzerTest, Duration) {
+TEST_F(TraceEventAnalyzerTest, BeginEndDuration) {
   ManualSetUp();
 
   const base::TimeDelta kSleepTime = base::TimeDelta::FromMilliseconds(200);
@@ -385,14 +403,19 @@ TEST_F(TraceEventAnalyzerTest, Duration) {
 
   BeginTracing();
   {
-    TRACE_EVENT0("cat1", "name1"); // found by duration query
-    TRACE_EVENT0("noise", "name2"); // not searched for, just noise
+    TRACE_EVENT_BEGIN0("cat1", "name1"); // found by duration query
+    TRACE_EVENT_BEGIN0("noise", "name2"); // not searched for, just noise
     {
-      TRACE_EVENT0("cat2", "name3"); // found by duration query
-      TRACE_EVENT_INSTANT0("noise", "name4"); // not searched for, just noise
+      TRACE_EVENT_BEGIN0("cat2", "name3"); // found by duration query
+      // next event not searched for, just noise
+      TRACE_EVENT_INSTANT0("noise", "name4", TRACE_EVENT_SCOPE_THREAD);
       base::debug::HighResSleepForTraceTest(kSleepTime);
-      TRACE_EVENT0("cat2", "name5"); // not found (duration too short)
+      TRACE_EVENT_BEGIN0("cat2", "name5"); // not found (duration too short)
+      TRACE_EVENT_END0("cat2", "name5"); // not found (duration too short)
+      TRACE_EVENT_END0("cat2", "name3"); // found by duration query
     }
+    TRACE_EVENT_END0("noise", "name2"); // not searched for, just noise
+    TRACE_EVENT_END0("cat1", "name1"); // found by duration query
   }
   EndTracing();
 
@@ -414,6 +437,46 @@ TEST_F(TraceEventAnalyzerTest, Duration) {
   EXPECT_STREQ("name3", found[1]->name.c_str());
 }
 
+// Test that duration queries work.
+TEST_F(TraceEventAnalyzerTest, CompleteDuration) {
+  ManualSetUp();
+
+  const base::TimeDelta kSleepTime = base::TimeDelta::FromMilliseconds(200);
+  // We will search for events that have a duration of greater than 90% of the
+  // sleep time, so that there is no flakiness.
+  int duration_cutoff_us = (kSleepTime.InMicroseconds() * 9) / 10;
+
+  BeginTracing();
+  {
+    TRACE_EVENT0("cat1", "name1"); // found by duration query
+    TRACE_EVENT0("noise", "name2"); // not searched for, just noise
+    {
+      TRACE_EVENT0("cat2", "name3"); // found by duration query
+      // next event not searched for, just noise
+      TRACE_EVENT_INSTANT0("noise", "name4", TRACE_EVENT_SCOPE_THREAD);
+      base::debug::HighResSleepForTraceTest(kSleepTime);
+      TRACE_EVENT0("cat2", "name5"); // not found (duration too short)
+    }
+  }
+  EndTracing();
+
+  scoped_ptr<TraceAnalyzer>
+      analyzer(TraceAnalyzer::Create(output_.json_output));
+  ASSERT_TRUE(analyzer.get());
+  analyzer->AssociateBeginEndEvents();
+
+  TraceEventVector found;
+  analyzer->FindEvents(
+      Query::EventCompleteDuration() > Query::Int(duration_cutoff_us) &&
+      (Query::EventCategory() == Query::String("cat1") ||
+       Query::EventCategory() == Query::String("cat2") ||
+       Query::EventCategory() == Query::String("cat3")),
+      &found);
+  ASSERT_EQ(2u, found.size());
+  EXPECT_STREQ("name1", found[0]->name.c_str());
+  EXPECT_STREQ("name3", found[1]->name.c_str());
+}
+
 // Test AssociateBeginEndEvents
 TEST_F(TraceEventAnalyzerTest, BeginEndAssocations) {
   ManualSetUp();
@@ -421,9 +484,10 @@ TEST_F(TraceEventAnalyzerTest, BeginEndAssocations) {
   BeginTracing();
   {
     TRACE_EVENT_END0("cat1", "name1"); // does not match out of order begin
-    TRACE_EVENT0("cat1", "name2");
-    TRACE_EVENT_INSTANT0("cat1", "name3");
+    TRACE_EVENT_BEGIN0("cat1", "name2");
+    TRACE_EVENT_INSTANT0("cat1", "name3", TRACE_EVENT_SCOPE_THREAD);
     TRACE_EVENT_BEGIN0("cat1", "name1");
+    TRACE_EVENT_END0("cat1", "name2");
   }
   EndTracing();
 
@@ -475,7 +539,7 @@ TEST_F(TraceEventAnalyzerTest, AsyncBeginEndAssocations) {
     TRACE_EVENT_ASYNC_END0("cat1", "name1", 0xA); // no match / out of order
     TRACE_EVENT_ASYNC_BEGIN0("cat1", "name1", 0xB);
     TRACE_EVENT_ASYNC_BEGIN0("cat1", "name1", 0xC);
-    TRACE_EVENT_INSTANT0("cat1", "name1"); // noise
+    TRACE_EVENT_INSTANT0("cat1", "name1", TRACE_EVENT_SCOPE_THREAD); // noise
     TRACE_EVENT0("cat1", "name1"); // noise
     TRACE_EVENT_ASYNC_END0("cat1", "name1", 0xB);
     TRACE_EVENT_ASYNC_END0("cat1", "name1", 0xC);
@@ -491,8 +555,8 @@ TEST_F(TraceEventAnalyzerTest, AsyncBeginEndAssocations) {
   TraceEventVector found;
   analyzer->FindEvents(Query::MatchAsyncBeginWithNext(), &found);
   ASSERT_EQ(2u, found.size());
-  EXPECT_STRCASEEQ("B", found[0]->id.c_str());
-  EXPECT_STRCASEEQ("C", found[1]->id.c_str());
+  EXPECT_STRCASEEQ("0xb", found[0]->id.c_str());
+  EXPECT_STRCASEEQ("0xc", found[1]->id.c_str());
 }
 
 // Test AssociateAsyncBeginEndEvents
@@ -501,17 +565,17 @@ TEST_F(TraceEventAnalyzerTest, AsyncBeginEndAssocationsWithSteps) {
 
   BeginTracing();
   {
-    TRACE_EVENT_ASYNC_STEP0("c", "n", 0xA, "s1");
+    TRACE_EVENT_ASYNC_STEP_INTO0("c", "n", 0xA, "s1");
     TRACE_EVENT_ASYNC_END0("c", "n", 0xA);
     TRACE_EVENT_ASYNC_BEGIN0("c", "n", 0xB);
     TRACE_EVENT_ASYNC_BEGIN0("c", "n", 0xC);
-    TRACE_EVENT_ASYNC_STEP0("c", "n", 0xB, "s1");
-    TRACE_EVENT_ASYNC_STEP0("c", "n", 0xC, "s1");
-    TRACE_EVENT_ASYNC_STEP1("c", "n", 0xC, "s2", "a", 1);
+    TRACE_EVENT_ASYNC_STEP_PAST0("c", "n", 0xB, "s1");
+    TRACE_EVENT_ASYNC_STEP_INTO0("c", "n", 0xC, "s1");
+    TRACE_EVENT_ASYNC_STEP_INTO1("c", "n", 0xC, "s2", "a", 1);
     TRACE_EVENT_ASYNC_END0("c", "n", 0xB);
     TRACE_EVENT_ASYNC_END0("c", "n", 0xC);
     TRACE_EVENT_ASYNC_BEGIN0("c", "n", 0xA);
-    TRACE_EVENT_ASYNC_STEP0("c", "n", 0xA, "s2");
+    TRACE_EVENT_ASYNC_STEP_INTO0("c", "n", 0xA, "s2");
   }
   EndTracing();
 
@@ -524,16 +588,16 @@ TEST_F(TraceEventAnalyzerTest, AsyncBeginEndAssocationsWithSteps) {
   analyzer->FindEvents(Query::MatchAsyncBeginWithNext(), &found);
   ASSERT_EQ(3u, found.size());
 
-  EXPECT_STRCASEEQ("B", found[0]->id.c_str());
-  EXPECT_EQ(TRACE_EVENT_PHASE_ASYNC_STEP, found[0]->other_event->phase);
+  EXPECT_STRCASEEQ("0xb", found[0]->id.c_str());
+  EXPECT_EQ(TRACE_EVENT_PHASE_ASYNC_STEP_PAST, found[0]->other_event->phase);
   EXPECT_TRUE(found[0]->other_event->other_event);
   EXPECT_EQ(TRACE_EVENT_PHASE_ASYNC_END,
             found[0]->other_event->other_event->phase);
 
-  EXPECT_STRCASEEQ("C", found[1]->id.c_str());
-  EXPECT_EQ(TRACE_EVENT_PHASE_ASYNC_STEP, found[1]->other_event->phase);
+  EXPECT_STRCASEEQ("0xc", found[1]->id.c_str());
+  EXPECT_EQ(TRACE_EVENT_PHASE_ASYNC_STEP_INTO, found[1]->other_event->phase);
   EXPECT_TRUE(found[1]->other_event->other_event);
-  EXPECT_EQ(TRACE_EVENT_PHASE_ASYNC_STEP,
+  EXPECT_EQ(TRACE_EVENT_PHASE_ASYNC_STEP_INTO,
             found[1]->other_event->other_event->phase);
   double arg_actual = 0;
   EXPECT_TRUE(found[1]->other_event->other_event->GetArgAsNumber(
@@ -543,8 +607,8 @@ TEST_F(TraceEventAnalyzerTest, AsyncBeginEndAssocationsWithSteps) {
   EXPECT_EQ(TRACE_EVENT_PHASE_ASYNC_END,
             found[1]->other_event->other_event->other_event->phase);
 
-  EXPECT_STRCASEEQ("A", found[2]->id.c_str());
-  EXPECT_EQ(TRACE_EVENT_PHASE_ASYNC_STEP, found[2]->other_event->phase);
+  EXPECT_STRCASEEQ("0xa", found[2]->id.c_str());
+  EXPECT_EQ(TRACE_EVENT_PHASE_ASYNC_STEP_INTO, found[2]->other_event->phase);
 }
 
 // Test that the TraceAnalyzer custom associations work.
@@ -555,12 +619,16 @@ TEST_F(TraceEventAnalyzerTest, CustomAssociations) {
   // to match up the begin/end pairs.
   BeginTracing();
   {
-    TRACE_EVENT_INSTANT1("cat1", "end", "id", 1);   // no begin match
-    TRACE_EVENT_INSTANT1("cat2", "begin", "id", 2); // end is cat4
-    TRACE_EVENT_INSTANT1("cat3", "begin", "id", 3); // end is cat5
-    TRACE_EVENT_INSTANT1("cat4", "end", "id", 2);
-    TRACE_EVENT_INSTANT1("cat5", "end", "id", 3);
-    TRACE_EVENT_INSTANT1("cat6", "begin", "id", 1); // no end match
+    // no begin match
+    TRACE_EVENT_INSTANT1("cat1", "end", TRACE_EVENT_SCOPE_THREAD, "id", 1);
+    // end is cat4
+    TRACE_EVENT_INSTANT1("cat2", "begin", TRACE_EVENT_SCOPE_THREAD, "id", 2);
+    // end is cat5
+    TRACE_EVENT_INSTANT1("cat3", "begin", TRACE_EVENT_SCOPE_THREAD, "id", 3);
+    TRACE_EVENT_INSTANT1("cat4", "end", TRACE_EVENT_SCOPE_THREAD, "id", 2);
+    TRACE_EVENT_INSTANT1("cat5", "end", TRACE_EVENT_SCOPE_THREAD, "id", 3);
+    // no end match
+    TRACE_EVENT_INSTANT1("cat6", "begin", TRACE_EVENT_SCOPE_THREAD, "id", 1);
   }
   EndTracing();
 
@@ -773,7 +841,7 @@ TEST_F(TraceEventAnalyzerTest, FindClosest) {
   events[0].name = "one";
   events[2].name = "two";
   events[4].name = "three";
-  Query query_named = Query::EventName() != Query::String("");
+  Query query_named = Query::EventName() != Query::String(std::string());
   Query query_one = Query::EventName() == Query::String("one");
 
   // Only one event matches query_one, so two closest can't be found.
@@ -809,7 +877,7 @@ TEST_F(TraceEventAnalyzerTest, CountMatches) {
   events[0].name = "one";
   events[2].name = "two";
   events[4].name = "three";
-  Query query_named = Query::EventName() != Query::String("");
+  Query query_named = Query::EventName() != Query::String(std::string());
   Query query_one = Query::EventName() == Query::String("one");
 
   EXPECT_EQ(0u, CountMatches(event_ptrs, Query::Bool(false)));

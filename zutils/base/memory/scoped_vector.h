@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "base/basictypes.h"
+#include "base/logging.h"
 #include "base/move.h"
 #include "base/stl_util.h"
 
@@ -34,15 +35,15 @@ class ScopedVector {
 
   ScopedVector() {}
   ~ScopedVector() { clear(); }
-  ScopedVector(RValue& other) { swap(other); }
+  ScopedVector(RValue other) { swap(*other.object); }
 
-  ScopedVector& operator=(RValue& rhs) {
-    swap(rhs);
+  ScopedVector& operator=(RValue rhs) {
+    swap(*rhs.object);
     return *this;
   }
 
-  T*& operator[](size_t index) { return v_[index]; }
-  const T* operator[](size_t index) const { return v_[index]; }
+  reference operator[](size_t index) { return v_[index]; }
+  const_reference operator[](size_t index) const { return v_[index]; }
 
   bool empty() const { return v_.empty(); }
   size_t size() const { return v_.size(); }
@@ -64,6 +65,12 @@ class ScopedVector {
 
   void push_back(T* elem) { v_.push_back(elem); }
 
+  void pop_back() {
+    DCHECK(!empty());
+    delete v_.back();
+    v_.pop_back();
+  }
+
   std::vector<T*>& get() { return v_; }
   const std::vector<T*>& get() const { return v_; }
   void swap(std::vector<T*>& other) { v_.swap(other); }
@@ -74,7 +81,13 @@ class ScopedVector {
   }
 
   void reserve(size_t capacity) { v_.reserve(capacity); }
-  void resize(size_t new_size) { v_.resize(new_size); }
+
+  // Resize, deleting elements in the disappearing range if we are shrinking.
+  void resize(size_t new_size) {
+    if (v_.size() > new_size)
+      STLDeleteContainerPointers(v_.begin() + new_size, v_.end());
+    v_.resize(new_size);
+  }
 
   template<typename InputIterator>
   void assign(InputIterator begin, InputIterator end) {

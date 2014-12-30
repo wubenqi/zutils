@@ -6,16 +6,20 @@
 
 #include <dlfcn.h>
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "base/logging.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/threading/thread_restrictions.h"
-#include "base/utf_string_conversions.h"
 
 namespace base {
 
+std::string NativeLibraryLoadError::ToString() const {
+  return message;
+}
+
 // static
 NativeLibrary LoadNativeLibrary(const FilePath& library_path,
-                                std::string* error) {
+                                NativeLibraryLoadError* error) {
   // dlopen() opens the file off disk.
   base::ThreadRestrictions::AssertIOAllowed();
 
@@ -25,7 +29,7 @@ NativeLibrary LoadNativeLibrary(const FilePath& library_path,
   // and http://crbug.com/40794.
   void* dl = dlopen(library_path.value().c_str(), RTLD_LAZY);
   if (!dl && error)
-    *error = dlerror();
+    error->message = dlerror();
 
   return dl;
 }

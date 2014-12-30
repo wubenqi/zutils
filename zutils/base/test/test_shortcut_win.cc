@@ -7,27 +7,20 @@
 #include <windows.h>
 #include <shlobj.h>
 #include <propkey.h>
-#include <propvarutil.h>
 
-#include "base/file_path.h"
-#include "base/string16.h"
-#include "base/utf_string_conversions.h"
+#include "base/files/file_path.h"
+#include "base/strings/string16.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/win/scoped_comptr.h"
+#include "base/win/scoped_propvariant.h"
 #include "base/win/windows_version.h"
 #include "testing/gtest/include/gtest/gtest.h"
-
-// propsys.lib is required for PropvariantTo*().
-#pragma comment(lib, "propsys.lib")
 
 namespace base {
 namespace win {
 
-namespace {
-
-// Validates |actual_path|'s LongPathName case-insensitively matches
-// |expected_path|'s LongPathName.
-void ValidatePathsAreEqual(const FilePath& expected_path,
-                           const FilePath& actual_path) {
+void ValidatePathsAreEqual(const base::FilePath& expected_path,
+                           const base::FilePath& actual_path) {
   wchar_t long_expected_path_chars[MAX_PATH] = {0};
   wchar_t long_actual_path_chars[MAX_PATH] = {0};
 
@@ -46,17 +39,15 @@ void ValidatePathsAreEqual(const FilePath& expected_path,
       actual_path.value().c_str(), long_actual_path_chars, MAX_PATH))
           << "Failed to get LongPathName of " << actual_path.value();
 
-  FilePath long_expected_path(long_expected_path_chars);
-  FilePath long_actual_path(long_actual_path_chars);
+  base::FilePath long_expected_path(long_expected_path_chars);
+  base::FilePath long_actual_path(long_actual_path_chars);
   EXPECT_FALSE(long_expected_path.empty());
   EXPECT_FALSE(long_actual_path.empty());
 
   EXPECT_EQ(long_expected_path, long_actual_path);
 }
 
-}  // namespace
-
-void ValidateShortcut(const FilePath& shortcut_path,
+void ValidateShortcut(const base::FilePath& shortcut_path,
                       const ShortcutProperties& properties) {
   ScopedComPtr<IShellLink> i_shell_link;
   ScopedComPtr<IPersistFile> i_persist_file;
@@ -90,13 +81,14 @@ void ValidateShortcut(const FilePath& shortcut_path,
   if (properties.options & ShortcutProperties::PROPERTIES_TARGET) {
     EXPECT_TRUE(SUCCEEDED(
         i_shell_link->GetPath(read_target, MAX_PATH, NULL, SLGP_SHORTPATH)));
-    ValidatePathsAreEqual(properties.target, FilePath(read_target));
+    ValidatePathsAreEqual(properties.target, base::FilePath(read_target));
   }
 
   if (properties.options & ShortcutProperties::PROPERTIES_WORKING_DIR) {
     EXPECT_TRUE(SUCCEEDED(
         i_shell_link->GetWorkingDirectory(read_working_dir, MAX_PATH)));
-    ValidatePathsAreEqual(properties.working_dir, FilePath(read_working_dir));
+    ValidatePathsAreEqual(properties.working_dir,
+                          base::FilePath(read_working_dir));
   }
 
   if (properties.options & ShortcutProperties::PROPERTIES_ARGUMENTS) {
@@ -114,40 +106,48 @@ void ValidateShortcut(const FilePath& shortcut_path,
   if (properties.options & ShortcutProperties::PROPERTIES_ICON) {
     EXPECT_TRUE(SUCCEEDED(
         i_shell_link->GetIconLocation(read_icon, MAX_PATH, &read_icon_index)));
-    ValidatePathsAreEqual(properties.icon, FilePath(read_icon));
+    ValidatePathsAreEqual(properties.icon, base::FilePath(read_icon));
     EXPECT_EQ(properties.icon_index, read_icon_index);
   }
 
   if (GetVersion() >= VERSION_WIN7) {
     ScopedComPtr<IPropertyStore> property_store;
-    // Note that, as mentioned on MSDN at http://goo.gl/M8h9g, if a property is
-    // not set, GetValue will return S_OK and the PROPVARIANT will be set to
-    // VT_EMPTY.
-    PROPVARIANT pv_app_id, pv_dual_mode;
     EXPECT_TRUE(SUCCEEDED(hr = property_store.QueryFrom(i_shell_link)));
     if (FAILED(hr))
       return;
-    EXPECT_EQ(S_OK, property_store->GetValue(PKEY_AppUserModel_ID, &pv_app_id));
-    EXPECT_EQ(S_OK, property_store->GetValue(PKEY_AppUserModel_IsDualMode,
-                                             &pv_dual_mode));
 
-    // Note, as mentioned on MSDN at
-    // http://msdn.microsoft.com/library/windows/desktop/bb776559.aspx, if
-    // |pv_app_id| is a VT_EMPTY it is successfully converted to the empty
-    // string as desired.
-    wchar_t read_app_id[MAX_PATH] = {0};
-    PropVariantToString(pv_app_id, read_app_id, MAX_PATH);
-    if (properties.options & ShortcutProperties::PROPERTIES_APP_ID)
-      EXPECT_EQ(properties.app_id, read_app_id);
+    if (properties.options & ShortcutProperties::PROPERTIES_APP_ID) {
+      ScopedPropVariant pv_app_id;
+      EXPECT_EQ(S_OK, property_store->GetValue(PKEY_AppUserModel_ID,
+                                               pv_app_id.Receive()));
+      switch (pv_app_id.get().vt) {
+        case VT_EMPTY:
+          EXPECT_TRUE(properties.app_id.empty());
+          break;
+        case VT_LPWSTR:
+          EXPECT_EQ(properties.app_id, pv_app_id.get().pwszVal);
+          break;
+        default:
+          ADD_FAILURE() << "Unexpected variant type: " << pv_app_id.get().vt;
+      }
+    }
 
-    // Note, as mentioned on MSDN at
-    // http://msdn.microsoft.com/library/windows/desktop/bb776531.aspx, if
-    // |pv_dual_mode| is a VT_EMPTY it is successfully converted to false as
-    // desired.
-    BOOL read_dual_mode;
-    PropVariantToBoolean(pv_dual_mode, &read_dual_mode);
-    if (properties.options & ShortcutProperties::PROPERTIES_DUAL_MODE)
-      EXPECT_EQ(properties.dual_mode, static_cast<bool>(read_dual_mode));
+    if (properties.options & ShortcutProperties::PROPERTIES_DUAL_MODE) {
+      ScopedPropVariant pv_dual_mode;
+      EXPECT_EQ(S_OK, property_store->GetValue(PKEY_AppUserModel_IsDualMode,
+                                               pv_dual_mode.Receive()));
+      switch (pv_dual_mode.get().vt) {
+        case VT_EMPTY:
+          EXPECT_FALSE(properties.dual_mode);
+          break;
+        case VT_BOOL:
+          EXPECT_EQ(properties.dual_mode,
+                    static_cast<bool>(pv_dual_mode.get().boolVal));
+          break;
+        default:
+          ADD_FAILURE() << "Unexpected variant type: " << pv_dual_mode.get().vt;
+      }
+    }
   }
 }
 

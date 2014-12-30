@@ -3,7 +3,7 @@
 	ProjectType="Visual C++"
 	Version="9.00"
 	Name="base"
-	ProjectGUID="{12A455D5-6AD0-4334-B8AD-F38C9EFC9420}"
+	ProjectGUID="{E92D648B-4372-4BAF-91B1-4E20BEB257CD}"
 	RootNamespace="base"
 	Keyword="Win32Proj"
 	TargetFrameworkVersion="196613"
@@ -40,16 +40,12 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalOptions="/MP /we4389"
 				Optimization="0"
 				AdditionalIncludeDirectories="../"
-				PreprocessorDefinitions="&quot;_WIN32_WINNT=0x0601&quot;;&quot;WINVER=0x0601&quot;;&quot;WIN32&quot;;&quot;_WINDOWS&quot;;&quot;NOMINMAX&quot;;&quot;PSAPI_VERSION=1&quot;;&quot;_CRT_RAND_S&quot;;&quot;CERT_CHAIN_PARA_HAS_EXTRA_FIELDS&quot;;&quot;WIN32_LEAN_AND_MEAN&quot;;&quot;_ATL_NO_OPENGL&quot;;&quot;_HAS_EXCEPTIONS=0&quot;;&quot;_HAS_TR1=0&quot;;&quot;_SECURE_ATL&quot;;&quot;CHROMIUM_BUILD&quot;;&quot;TOOLKIT_VIEWS=1&quot;;&quot;ENABLE_ONE_CLICK_SIGNIN&quot;;&quot;ENABLE_REMOTING=1&quot;;&quot;ENABLE_WEBRTC=1&quot;;&quot;ENABLE_CONFIGURATION_POLICY&quot;;&quot;ENABLE_INPUT_SPEECH&quot;;&quot;ENABLE_NOTIFICATIONS&quot;;&quot;ENABLE_GPU=1&quot;;&quot;ENABLE_EGLIMAGE=1&quot;;&quot;USE_SKIA=1&quot;;&quot;__STD_C&quot;;&quot;_CRT_SECURE_NO_DEPRECATE&quot;;&quot;_SCL_SECURE_NO_DEPRECATE&quot;;&quot;ENABLE_TASK_MANAGER=1&quot;;&quot;ENABLE_WEB_INTENTS=1&quot;;&quot;ENABLE_EXTENSIONS=1&quot;;&quot;ENABLE_PLUGIN_INSTALLATION=1&quot;;&quot;ENABLE_PROTECTOR_SERVICE=1&quot;;&quot;ENABLE_SESSION_SERVICE=1&quot;;&quot;ENABLE_THEMES=1&quot;;&quot;ENABLE_BACKGROUND=1&quot;;&quot;ENABLE_PROMO_RESOURCE_SERVICE=1&quot;;&quot;ENABLE_AUTOMATION=1&quot;;&quot;ENABLE_PRINTING=1&quot;;&quot;ENABLE_CAPTIVE_PORTAL_DETECTION=1&quot;;&quot;__STDC_FORMAT_MACROS&quot;;&quot;BASE_IMPLEMENTATION&quot;;&quot;DYNAMIC_ANNOTATIONS_ENABLED=1&quot;;&quot;WTF_USE_DYNAMIC_ANNOTATIONS=1&quot;"
-				MinimalRebuild="false"
-				ExceptionHandling="0"
+				PreprocessorDefinitions="WIN32;_DEBUG;_LIB;&quot;NOMINMAX&quot;;&quot;PATCH_BY_WUBENQI&quot;;&quot;__STD_C&quot;;&quot;_CRT_SECURE_NO_DEPRECATE&quot;;&quot;_SCL_SECURE_NO_DEPRECATE&quot;;&quot;WIN32_LEAN_AND_MEAN&quot;;&quot;DYNAMIC_ANNOTATIONS_ENABLED=1&quot;"
+				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
-				EnableFunctionLevelLinking="true"
-				RuntimeTypeInfo="false"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				DebugInformationFormat="4"
@@ -66,7 +62,6 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				AdditionalOptions="/ignore:4221"
 				AdditionalDependencies="dbghelp.lib Psapi.lib ws2_32.lib"
 				OutputFile="../../lib/$(ProjectName).lib"
 			/>
@@ -88,8 +83,8 @@
 		</Configuration>
 		<Configuration
 			Name="Release|Win32"
-			OutputDirectory="../../../output/release/zutils/base"
-			IntermediateDirectory="../../../output/release/zutils/base"
+			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
+			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="4"
 			CharacterSet="1"
 			WholeProgramOptimization="1"
@@ -176,10 +171,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\atomicops_internals_atomicword_compat.h"
-				>
-			</File>
-			<File
 				RelativePath=".\atomicops_internals_x86_msvc.h"
 				>
 			</File>
@@ -228,11 +219,15 @@
 				>
 			</File>
 			<File
-				RelativePath=".\bind.h"
+				RelativePath=".\big_endian.cc"
 				>
 			</File>
 			<File
-				RelativePath=".\bind.h.pump"
+				RelativePath=".\big_endian.h"
+				>
+			</File>
+			<File
+				RelativePath=".\bind.h"
 				>
 			</File>
 			<File
@@ -256,19 +251,15 @@
 				>
 			</File>
 			<File
-				RelativePath=".\build_time.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\build_time.h"
-				>
-			</File>
-			<File
 				RelativePath=".\callback.h"
 				>
 			</File>
 			<File
 				RelativePath=".\callback_forward.h"
+				>
+			</File>
+			<File
+				RelativePath=".\callback_helpers.cc"
 				>
 			</File>
 			<File
@@ -284,7 +275,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\cancelable_callback.h"
+				RelativePath=".\callback_list.h"
 				>
 			</File>
 			<File
@@ -312,14 +303,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\debug_message.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\eintr_wrapper.h"
-				>
-			</File>
-			<File
 				RelativePath=".\environment.cc"
 				>
 			</File>
@@ -328,71 +311,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\event_recorder.h"
-				>
-			</File>
-			<File
-				RelativePath=".\event_recorder_win.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\event_types.h"
-				>
-			</File>
-			<File
-				RelativePath=".\file_descriptor_shuffle.h"
-				>
-			</File>
-			<File
-				RelativePath=".\file_path.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\file_path.h"
-				>
-			</File>
-			<File
-				RelativePath=".\file_util.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\file_util.h"
-				>
-			</File>
-			<File
-				RelativePath=".\file_util_proxy.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\file_util_proxy.h"
-				>
-			</File>
-			<File
-				RelativePath=".\file_util_win.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\file_version_info.h"
-				>
-			</File>
-			<File
-				RelativePath=".\file_version_info_win.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\file_version_info_win.h"
-				>
-			</File>
-			<File
 				RelativePath=".\float_util.h"
-				>
-			</File>
-			<File
-				RelativePath=".\format_macros.h"
-				>
-			</File>
-			<File
-				RelativePath=".\gtest_prod_util.h"
 				>
 			</File>
 			<File
@@ -416,18 +335,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\hash_tables.h"
-				>
-			</File>
-			<File
-				RelativePath=".\hi_res_timer_manager.h"
-				>
-			</File>
-			<File
-				RelativePath=".\hi_res_timer_manager_win.cc"
-				>
-			</File>
-			<File
 				RelativePath=".\id_map.h"
 				>
 			</File>
@@ -437,10 +344,6 @@
 			</File>
 			<File
 				RelativePath=".\lazy_instance.h"
-				>
-			</File>
-			<File
-				RelativePath=".\linked_list.h"
 				>
 			</File>
 			<File
@@ -468,75 +371,15 @@
 				>
 			</File>
 			<File
+				RelativePath=".\macros.h"
+				>
+			</File>
+			<File
 				RelativePath=".\md5.cc"
 				>
 			</File>
 			<File
 				RelativePath=".\md5.h"
-				>
-			</File>
-			<File
-				RelativePath=".\message_loop.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\message_loop.h"
-				>
-			</File>
-			<File
-				RelativePath=".\message_loop_proxy.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\message_loop_proxy.h"
-				>
-			</File>
-			<File
-				RelativePath=".\message_loop_proxy_impl.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\message_loop_proxy_impl.h"
-				>
-			</File>
-			<File
-				RelativePath=".\message_pump.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\message_pump.h"
-				>
-			</File>
-			<File
-				RelativePath=".\message_pump_default.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\message_pump_default.h"
-				>
-			</File>
-			<File
-				RelativePath=".\message_pump_dispatcher.h"
-				>
-			</File>
-			<File
-				RelativePath=".\message_pump_libevent2.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\message_pump_libevent2.h"
-				>
-			</File>
-			<File
-				RelativePath=".\message_pump_observer.h"
-				>
-			</File>
-			<File
-				RelativePath=".\message_pump_win.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\message_pump_win.h"
 				>
 			</File>
 			<File
@@ -549,10 +392,6 @@
 			</File>
 			<File
 				RelativePath=".\native_library_win.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\nullable_string16.h"
 				>
 			</File>
 			<File
@@ -580,14 +419,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\perftimer.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\perftimer.h"
-				>
-			</File>
-			<File
 				RelativePath=".\pickle.cc"
 				>
 			</File>
@@ -596,47 +427,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\platform_file.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\platform_file.h"
-				>
-			</File>
-			<File
-				RelativePath=".\platform_file_win.cc"
-				>
-			</File>
-			<File
 				RelativePath=".\port.h"
-				>
-			</File>
-			<File
-				RelativePath=".\process.h"
-				>
-			</File>
-			<File
-				RelativePath=".\process_info.h"
-				>
-			</File>
-			<File
-				RelativePath=".\process_info_win.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\process_util.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\process_util.h"
-				>
-			</File>
-			<File
-				RelativePath=".\process_util_win.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\process_win.cc"
 				>
 			</File>
 			<File
@@ -652,11 +443,23 @@
 				>
 			</File>
 			<File
+				RelativePath=".\README.wubenqi"
+				>
+			</File>
+			<File
 				RelativePath=".\run_loop.cc"
 				>
 			</File>
 			<File
 				RelativePath=".\run_loop.h"
+				>
+			</File>
+			<File
+				RelativePath=".\scoped_clear_errno.h"
+				>
+			</File>
+			<File
+				RelativePath=".\scoped_generic.h"
 				>
 			</File>
 			<File
@@ -672,11 +475,15 @@
 				>
 			</File>
 			<File
-				RelativePath=".\scoped_temp_dir.cc"
+				RelativePath=".\sequence_checker.h"
 				>
 			</File>
 			<File
-				RelativePath=".\scoped_temp_dir.h"
+				RelativePath=".\sequence_checker_impl.cc"
+				>
+			</File>
+			<File
+				RelativePath=".\sequence_checker_impl.h"
 				>
 			</File>
 			<File
@@ -688,10 +495,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\sequenced_task_runner_helpers.h"
-				>
-			</File>
-			<File
 				RelativePath=".\sha1.h"
 				>
 			</File>
@@ -700,19 +503,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\shared_memory.h"
-				>
-			</File>
-			<File
-				RelativePath=".\shared_memory_win.cc"
-				>
-			</File>
-			<File
 				RelativePath=".\single_thread_task_runner.h"
-				>
-			</File>
-			<File
-				RelativePath=".\stack_container.h"
 				>
 			</File>
 			<File
@@ -720,79 +511,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\string16.h"
-				>
-			</File>
-			<File
-				RelativePath=".\string_number_conversions.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\string_number_conversions.h"
-				>
-			</File>
-			<File
-				RelativePath=".\string_piece.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\string_piece.h"
-				>
-			</File>
-			<File
-				RelativePath=".\string_split.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\string_split.h"
-				>
-			</File>
-			<File
-				RelativePath=".\string_tokenizer.h"
-				>
-			</File>
-			<File
-				RelativePath=".\string_util.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\string_util.h"
-				>
-			</File>
-			<File
-				RelativePath=".\string_util_win.h"
-				>
-			</File>
-			<File
-				RelativePath=".\stringize_macros.h"
-				>
-			</File>
-			<File
-				RelativePath=".\stringprintf.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\stringprintf.h"
-				>
-			</File>
-			<File
-				RelativePath=".\supports_user_data.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\supports_user_data.h"
-				>
-			</File>
-			<File
-				RelativePath=".\sync_socket.h"
-				>
-			</File>
-			<File
-				RelativePath=".\sync_socket_win.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\sys_byteorder.h"
+				RelativePath=".\sys_info.cc"
 				>
 			</File>
 			<File
@@ -801,14 +520,6 @@
 			</File>
 			<File
 				RelativePath=".\sys_info_win.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\sys_string_conversions.h"
-				>
-			</File>
-			<File
-				RelativePath=".\sys_string_conversions_win.cc"
 				>
 			</File>
 			<File
@@ -836,26 +547,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\time.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\time.h"
-				>
-			</File>
-			<File
-				RelativePath=".\time_win.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\timer.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\timer.h"
-				>
-			</File>
-			<File
 				RelativePath=".\tracked_objects.cc"
 				>
 			</File>
@@ -873,30 +564,6 @@
 			</File>
 			<File
 				RelativePath=".\tuple.h"
-				>
-			</File>
-			<File
-				RelativePath=".\utf_offset_string_conversions.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\utf_offset_string_conversions.h"
-				>
-			</File>
-			<File
-				RelativePath=".\utf_string_conversion_utils.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\utf_string_conversion_utils.h"
-				>
-			</File>
-			<File
-				RelativePath=".\utf_string_conversions.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\utf_string_conversions.h"
 				>
 			</File>
 			<File
@@ -932,6 +599,202 @@
 				>
 			</File>
 			<Filter
+				Name="third_party"
+				>
+				<Filter
+					Name="dynamic_annotations"
+					>
+					<File
+						RelativePath=".\third_party\dynamic_annotations\dynamic_annotations.c"
+						>
+					</File>
+					<File
+						RelativePath=".\third_party\dynamic_annotations\dynamic_annotations.h"
+						>
+					</File>
+				</Filter>
+				<Filter
+					Name="icu"
+					>
+					<File
+						RelativePath=".\third_party\icu\icu_utf.cc"
+						>
+					</File>
+					<File
+						RelativePath=".\third_party\icu\icu_utf.h"
+						>
+					</File>
+				</Filter>
+				<Filter
+					Name="nspr"
+					>
+					<File
+						RelativePath=".\third_party\nspr\prtime.cc"
+						>
+					</File>
+					<File
+						RelativePath=".\third_party\nspr\prtime.h"
+						>
+					</File>
+				</Filter>
+				<Filter
+					Name="dmg_fp"
+					>
+					<File
+						RelativePath=".\third_party\dmg_fp\dmg_fp.h"
+						>
+					</File>
+					<File
+						RelativePath=".\third_party\dmg_fp\dtoa_wrapper.cc"
+						>
+					</File>
+					<File
+						RelativePath=".\third_party\dmg_fp\g_fmt.cc"
+						>
+					</File>
+				</Filter>
+			</Filter>
+			<Filter
+				Name="strings"
+				>
+				<File
+					RelativePath=".\strings\nullable_string16.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\strings\nullable_string16.h"
+					>
+				</File>
+				<File
+					RelativePath=".\strings\safe_sprintf.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\strings\safe_sprintf.h"
+					>
+				</File>
+				<File
+					RelativePath=".\strings\string16.h"
+					>
+				</File>
+				<File
+					RelativePath=".\strings\string_number_conversions.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\strings\string_number_conversions.h"
+					>
+				</File>
+				<File
+					RelativePath=".\strings\string_piece.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\strings\string_piece.h"
+					>
+				</File>
+				<File
+					RelativePath=".\strings\string_split.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\strings\string_split.h"
+					>
+				</File>
+				<File
+					RelativePath=".\strings\string_tokenizer.h"
+					>
+				</File>
+				<File
+					RelativePath=".\strings\string_util.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\strings\string_util.h"
+					>
+				</File>
+				<File
+					RelativePath=".\strings\string_util_constants.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\strings\string_util_win.h"
+					>
+				</File>
+				<File
+					RelativePath=".\strings\stringize_macros.h"
+					>
+				</File>
+				<File
+					RelativePath=".\strings\stringprintf.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\strings\stringprintf.h"
+					>
+				</File>
+				<File
+					RelativePath=".\strings\sys_string_conversions.h"
+					>
+				</File>
+				<File
+					RelativePath=".\strings\sys_string_conversions_win.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\strings\utf_offset_string_conversions.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\strings\utf_offset_string_conversions.h"
+					>
+				</File>
+				<File
+					RelativePath=".\strings\utf_string_conversion_utils.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\strings\utf_string_conversion_utils.h"
+					>
+				</File>
+				<File
+					RelativePath=".\strings\utf_string_conversions.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\strings\utf_string_conversions.h"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="containers"
+				>
+				<File
+					RelativePath=".\containers\hash_tables.h"
+					>
+				</File>
+				<File
+					RelativePath=".\containers\linked_list.h"
+					>
+				</File>
+				<File
+					RelativePath=".\containers\mru_cache.h"
+					>
+				</File>
+				<File
+					RelativePath=".\containers\scoped_ptr_hash_map.h"
+					>
+				</File>
+				<File
+					RelativePath=".\containers\small_map.h"
+					>
+				</File>
+				<File
+					RelativePath=".\containers\stack_container.h"
+					>
+				</File>
+			</Filter>
+			<Filter
 				Name="memory"
 				>
 				<File
@@ -943,15 +806,15 @@
 					>
 				</File>
 				<File
+					RelativePath=".\memory\discardable_memory.h"
+					>
+				</File>
+				<File
 					RelativePath=".\memory\linked_ptr.h"
 					>
 				</File>
 				<File
-					RelativePath=".\memory\mru_cache.h"
-					>
-				</File>
-				<File
-					RelativePath=".\memory\raw_scoped_refptr_mismatch_checker.h"
+					RelativePath=".\memory\manual_constructor.h"
 					>
 				</File>
 				<File
@@ -968,22 +831,6 @@
 				</File>
 				<File
 					RelativePath=".\memory\ref_counted_memory.h"
-					>
-				</File>
-				<File
-					RelativePath=".\memory\scoped_generic_obj.h"
-					>
-				</File>
-				<File
-					RelativePath=".\memory\scoped_handle.h"
-					>
-				</File>
-				<File
-					RelativePath=".\memory\scoped_nsobject.h"
-					>
-				</File>
-				<File
-					RelativePath=".\memory\scoped_open_process.h"
 					>
 				</File>
 				<File
@@ -1016,6 +863,782 @@
 				</File>
 				<File
 					RelativePath=".\memory\weak_ptr.h"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="numerics"
+				>
+				<File
+					RelativePath=".\numerics\safe_conversions.h"
+					>
+				</File>
+				<File
+					RelativePath=".\numerics\safe_conversions_impl.h"
+					>
+				</File>
+				<File
+					RelativePath=".\numerics\safe_math.h"
+					>
+				</File>
+				<File
+					RelativePath=".\numerics\safe_math_impl.h"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="posix"
+				>
+				<File
+					RelativePath=".\posix\eintr_wrapper.h"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="win"
+				>
+				<File
+					RelativePath=".\win\dllmain.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\win\enum_variant.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\win\enum_variant.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\event_trace_consumer.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\event_trace_controller.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\win\event_trace_controller.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\event_trace_provider.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\win\event_trace_provider.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\iat_patch_function.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\win\iat_patch_function.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\iunknown_impl.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\win\iunknown_impl.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\message_window.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\win\message_window.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\metro.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\win\metro.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\object_watcher.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\win\object_watcher.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\pe_image.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\win\pe_image.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\registry.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\win\registry.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\resource_util.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\win\resource_util.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\scoped_bstr.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\win\scoped_bstr.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\scoped_co_mem.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\scoped_com_initializer.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\scoped_comptr.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\scoped_handle.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\win\scoped_handle.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\scoped_hdc.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\scoped_hglobal.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\scoped_process_information.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\win\scoped_process_information.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\scoped_propvariant.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\scoped_select_object.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\scoped_variant.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\win\scoped_variant.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\shortcut.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\win\shortcut.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\startup_information.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\win\startup_information.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\win_util.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\win\win_util.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\windows_version.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\win\windows_version.h"
+					>
+				</File>
+				<File
+					RelativePath=".\win\wrapped_window_proc.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\win\wrapped_window_proc.h"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="time"
+				>
+				<File
+					RelativePath=".\time\clock.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\time\clock.h"
+					>
+				</File>
+				<File
+					RelativePath=".\time\default_clock.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\time\default_clock.h"
+					>
+				</File>
+				<File
+					RelativePath=".\time\default_tick_clock.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\time\default_tick_clock.h"
+					>
+				</File>
+				<File
+					RelativePath=".\time\tick_clock.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\time\tick_clock.h"
+					>
+				</File>
+				<File
+					RelativePath=".\time\time.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\time\time.h"
+					>
+				</File>
+				<File
+					RelativePath=".\time\time_win.cc"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="files"
+				>
+				<File
+					RelativePath=".\files\dir_reader_fallback.h"
+					>
+				</File>
+				<File
+					RelativePath=".\files\file.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\files\file.h"
+					>
+				</File>
+				<File
+					RelativePath=".\files\file_enumerator.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\files\file_enumerator.h"
+					>
+				</File>
+				<File
+					RelativePath=".\files\file_enumerator_win.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\files\file_path.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\files\file_path.h"
+					>
+				</File>
+				<File
+					RelativePath=".\files\file_path_constants.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\files\file_path_watcher.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\files\file_path_watcher.h"
+					>
+				</File>
+				<File
+					RelativePath=".\files\file_path_watcher_win.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\files\file_util.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\files\file_util.h"
+					>
+				</File>
+				<File
+					RelativePath=".\files\file_util_win.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\files\file_win.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\files\important_file_writer.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\files\important_file_writer.h"
+					>
+				</File>
+				<File
+					RelativePath=".\files\memory_mapped_file.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\files\memory_mapped_file.h"
+					>
+				</File>
+				<File
+					RelativePath=".\files\memory_mapped_file_win.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\files\scoped_file.h"
+					>
+				</File>
+				<File
+					RelativePath=".\files\scoped_temp_dir.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\files\scoped_temp_dir.h"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="metrics"
+				>
+				<File
+					RelativePath=".\metrics\bucket_ranges.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\bucket_ranges.h"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\field_trial.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\field_trial.h"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\histogram.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\histogram.h"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\histogram_base.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\histogram_base.h"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\histogram_delta_serialization.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\histogram_delta_serialization.h"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\histogram_flattener.h"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\histogram_samples.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\histogram_samples.h"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\histogram_snapshot_manager.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\histogram_snapshot_manager.h"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\sample_map.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\sample_map.h"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\sample_vector.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\sample_vector.h"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\sparse_histogram.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\sparse_histogram.h"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\statistics_recorder.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\statistics_recorder.h"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\stats_counters.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\stats_counters.h"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\stats_table.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\stats_table.h"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\user_metrics.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\user_metrics.h"
+					>
+				</File>
+				<File
+					RelativePath=".\metrics\user_metrics_action.h"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="json"
+				>
+				<File
+					RelativePath=".\json\json_file_value_serializer.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\json\json_file_value_serializer.h"
+					>
+				</File>
+				<File
+					RelativePath=".\json\json_parser.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\json\json_parser.h"
+					>
+				</File>
+				<File
+					RelativePath=".\json\json_reader.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\json\json_reader.h"
+					>
+				</File>
+				<File
+					RelativePath=".\json\json_string_value_serializer.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\json\json_string_value_serializer.h"
+					>
+				</File>
+				<File
+					RelativePath=".\json\json_value_converter.h"
+					>
+				</File>
+				<File
+					RelativePath=".\json\json_writer.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\json\json_writer.h"
+					>
+				</File>
+				<File
+					RelativePath=".\json\string_escape.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\json\string_escape.h"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="profiler"
+				>
+				<File
+					RelativePath=".\profiler\alternate_timer.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\profiler\alternate_timer.h"
+					>
+				</File>
+				<File
+					RelativePath=".\profiler\scoped_profile.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\profiler\scoped_profile.h"
+					>
+				</File>
+				<File
+					RelativePath=".\profiler\tracked_time.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\profiler\tracked_time.h"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="timer"
+				>
+				<File
+					RelativePath=".\timer\elapsed_timer.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\timer\elapsed_timer.h"
+					>
+				</File>
+				<File
+					RelativePath=".\timer\mock_timer.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\timer\mock_timer.h"
+					>
+				</File>
+				<File
+					RelativePath=".\timer\timer.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\timer\timer.h"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="message_loop"
+				>
+				<File
+					RelativePath=".\message_loop\incoming_task_queue.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\message_loop\incoming_task_queue.h"
+					>
+				</File>
+				<File
+					RelativePath=".\message_loop\message_loop.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\message_loop\message_loop.h"
+					>
+				</File>
+				<File
+					RelativePath=".\message_loop\message_loop_proxy.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\message_loop\message_loop_proxy.h"
+					>
+				</File>
+				<File
+					RelativePath=".\message_loop\message_loop_proxy_impl.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\message_loop\message_loop_proxy_impl.h"
+					>
+				</File>
+				<File
+					RelativePath=".\message_loop\message_loop_test.h"
+					>
+				</File>
+				<File
+					RelativePath=".\message_loop\message_pump.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\message_loop\message_pump.h"
+					>
+				</File>
+				<File
+					RelativePath=".\message_loop\message_pump_default.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\message_loop\message_pump_default.h"
+					>
+				</File>
+				<File
+					RelativePath=".\message_loop\message_pump_dispatcher.h"
+					>
+				</File>
+				<File
+					RelativePath=".\message_loop\message_pump_libevent.h"
+					>
+				</File>
+				<File
+					RelativePath=".\message_loop\message_pump_win.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\message_loop\message_pump_win.h"
+					>
+				</File>
+				<File
+					RelativePath=".\message_loop\timer_slack.h"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="process"
+				>
+				<File
+					RelativePath=".\process\kill.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\process\kill.h"
+					>
+				</File>
+				<File
+					RelativePath=".\process\kill_win.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\process\launch.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\process\launch.h"
+					>
+				</File>
+				<File
+					RelativePath=".\process\launch_win.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\process\memory.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\process\memory.h"
+					>
+				</File>
+				<File
+					RelativePath=".\process\memory_win.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\process\process.h"
+					>
+				</File>
+				<File
+					RelativePath=".\process\process_handle.h"
+					>
+				</File>
+				<File
+					RelativePath=".\process\process_handle_win.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\process\process_info.h"
+					>
+				</File>
+				<File
+					RelativePath=".\process\process_info_win.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\process\process_iterator.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\process\process_iterator.h"
+					>
+				</File>
+				<File
+					RelativePath=".\process\process_iterator_win.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\process\process_metrics.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\process\process_metrics.h"
+					>
+				</File>
+				<File
+					RelativePath=".\process\process_metrics_win.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\process\process_win.cc"
 					>
 				</File>
 			</Filter>
@@ -1095,7 +1718,19 @@
 					>
 				</File>
 				<File
+					RelativePath=".\threading\thread_id_name_manager.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\threading\thread_id_name_manager.h"
+					>
+				</File>
+				<File
 					RelativePath=".\threading\thread_local.h"
+					>
+				</File>
+				<File
+					RelativePath=".\threading\thread_local_storage.cc"
 					>
 				</File>
 				<File
@@ -1138,86 +1773,6 @@
 					RelativePath=".\threading\worker_pool_win.cc"
 					>
 				</File>
-			</Filter>
-			<Filter
-				Name="third_party"
-				>
-				<Filter
-					Name="nspr"
-					>
-					<File
-						RelativePath=".\third_party\nspr\prcpucfg.h"
-						>
-					</File>
-					<File
-						RelativePath=".\third_party\nspr\prcpucfg_win.h"
-						>
-					</File>
-					<File
-						RelativePath=".\third_party\nspr\prtime.cc"
-						>
-					</File>
-					<File
-						RelativePath=".\third_party\nspr\prtime.h"
-						>
-					</File>
-					<File
-						RelativePath=".\third_party\nspr\prtypes.h"
-						>
-					</File>
-				</Filter>
-				<Filter
-					Name="dmg_fp"
-					>
-					<File
-						RelativePath=".\third_party\dmg_fp\dmg_fp.h"
-						>
-					</File>
-					<File
-						RelativePath=".\third_party\dmg_fp\dtoa_wrapper.cc"
-						>
-					</File>
-					<File
-						RelativePath=".\third_party\dmg_fp\g_fmt.cc"
-						>
-					</File>
-				</Filter>
-				<Filter
-					Name="dynamic_annotations"
-					>
-					<File
-						RelativePath=".\third_party\dynamic_annotations\dynamic_annotations.c"
-						>
-					</File>
-					<File
-						RelativePath=".\third_party\dynamic_annotations\dynamic_annotations.h"
-						>
-					</File>
-				</Filter>
-				<Filter
-					Name="icu"
-					>
-					<File
-						RelativePath=".\third_party\icu\icu_utf.cc"
-						>
-					</File>
-					<File
-						RelativePath=".\third_party\icu\icu_utf.h"
-						>
-					</File>
-				</Filter>
-				<Filter
-					Name="valgrind"
-					>
-					<File
-						RelativePath=".\third_party\valgrind\memcheck.h"
-						>
-					</File>
-					<File
-						RelativePath=".\third_party\valgrind\valgrind.h"
-						>
-					</File>
-				</Filter>
 			</Filter>
 			<Filter
 				Name="synchronization"
@@ -1276,478 +1831,178 @@
 				</File>
 			</Filter>
 			<Filter
-				Name="win"
-				>
-				<File
-					RelativePath=".\win\dllmain.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\win\enum_variant.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\win\enum_variant.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\event_trace_consumer.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\event_trace_controller.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\win\event_trace_controller.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\event_trace_provider.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\win\event_trace_provider.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\iat_patch_function.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\win\iat_patch_function.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\iunknown_impl.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\win\iunknown_impl.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\metro.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\win\metro.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\object_watcher.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\win\object_watcher.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\pe_image.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\win\pe_image.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\registry.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\win\registry.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\resource_util.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\win\resource_util.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\sampling_profiler.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\win\sampling_profiler.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\scoped_bstr.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\win\scoped_bstr.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\scoped_co_mem.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\scoped_com_initializer.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\scoped_comptr.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\scoped_gdi_object.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\scoped_handle.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\win\scoped_handle.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\scoped_hdc.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\scoped_hglobal.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\scoped_process_information.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\win\scoped_process_information.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\scoped_select_object.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\scoped_variant.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\win\scoped_variant.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\shortcut.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\win\shortcut.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\startup_information.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\win\startup_information.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\text_services_message_filter.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\win\text_services_message_filter.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\win_util.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\win\win_util.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\windows_version.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\win\windows_version.h"
-					>
-				</File>
-				<File
-					RelativePath=".\win\wrapped_window_proc.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\win\wrapped_window_proc.h"
-					>
-				</File>
-			</Filter>
-			<Filter
 				Name="debug"
 				>
 				<File
-					RelativePath=".\debug\alias.cc"
+					RelativePath=".\Debug\alias.cc"
 					>
 				</File>
 				<File
-					RelativePath=".\debug\alias.h"
+					RelativePath=".\Debug\alias.h"
 					>
 				</File>
 				<File
-					RelativePath=".\debug\debugger.cc"
+					RelativePath=".\Debug\crash_logging.cc"
 					>
 				</File>
 				<File
-					RelativePath=".\debug\debugger.h"
+					RelativePath=".\Debug\crash_logging.h"
 					>
 				</File>
 				<File
-					RelativePath=".\debug\debugger_win.cc"
+					RelativePath=".\Debug\debugger.cc"
 					>
 				</File>
 				<File
-					RelativePath=".\debug\profiler.cc"
+					RelativePath=".\Debug\debugger.h"
 					>
 				</File>
 				<File
-					RelativePath=".\debug\profiler.h"
+					RelativePath=".\Debug\debugger_win.cc"
 					>
 				</File>
 				<File
-					RelativePath=".\debug\stack_trace.cc"
+					RelativePath=".\Debug\dump_without_crashing.cc"
 					>
 				</File>
 				<File
-					RelativePath=".\debug\stack_trace.h"
+					RelativePath=".\Debug\dump_without_crashing.h"
 					>
 				</File>
 				<File
-					RelativePath=".\debug\stack_trace_win.cc"
+					RelativePath=".\Debug\leak_annotations.h"
 					>
 				</File>
 				<File
-					RelativePath=".\debug\trace_event.cc"
+					RelativePath=".\Debug\leak_tracker.h"
 					>
 				</File>
 				<File
-					RelativePath=".\debug\trace_event.h"
+					RelativePath=".\Debug\profiler.cc"
 					>
 				</File>
 				<File
-					RelativePath=".\debug\trace_event_impl.cc"
+					RelativePath=".\Debug\profiler.h"
 					>
 				</File>
 				<File
-					RelativePath=".\debug\trace_event_impl.h"
+					RelativePath=".\Debug\stack_trace.cc"
 					>
 				</File>
 				<File
-					RelativePath=".\debug\trace_event_win.cc"
+					RelativePath=".\Debug\stack_trace.h"
 					>
 				</File>
 				<File
-					RelativePath=".\debug\trace_event_win.h"
-					>
-				</File>
-			</Filter>
-			<Filter
-				Name="profiler"
-				>
-				<File
-					RelativePath=".\profiler\alternate_timer.cc"
+					RelativePath=".\Debug\stack_trace_win.cc"
 					>
 				</File>
 				<File
-					RelativePath=".\profiler\alternate_timer.h"
+					RelativePath=".\Debug\task_annotator.cc"
 					>
 				</File>
 				<File
-					RelativePath=".\profiler\scoped_profile.cc"
+					RelativePath=".\Debug\task_annotator.h"
 					>
 				</File>
 				<File
-					RelativePath=".\profiler\scoped_profile.h"
+					RelativePath=".\Debug\trace_event.h"
 					>
 				</File>
 				<File
-					RelativePath=".\profiler\tracked_time.cc"
+					RelativePath=".\Debug\trace_event_argument.cc"
 					>
 				</File>
 				<File
-					RelativePath=".\profiler\tracked_time.h"
-					>
-				</File>
-			</Filter>
-			<Filter
-				Name="metrics"
-				>
-				<File
-					RelativePath=".\metrics\bucket_ranges.cc"
+					RelativePath=".\Debug\trace_event_argument.h"
 					>
 				</File>
 				<File
-					RelativePath=".\metrics\bucket_ranges.h"
+					RelativePath=".\Debug\trace_event_impl.cc"
 					>
 				</File>
 				<File
-					RelativePath=".\metrics\field_trial.cc"
+					RelativePath=".\Debug\trace_event_impl.h"
 					>
 				</File>
 				<File
-					RelativePath=".\metrics\field_trial.h"
+					RelativePath=".\Debug\trace_event_impl_constants.cc"
 					>
 				</File>
 				<File
-					RelativePath=".\metrics\histogram.cc"
+					RelativePath=".\Debug\trace_event_memory.cc"
 					>
 				</File>
 				<File
-					RelativePath=".\metrics\histogram.h"
+					RelativePath=".\Debug\trace_event_memory.h"
 					>
 				</File>
 				<File
-					RelativePath=".\metrics\histogram_base.cc"
+					RelativePath=".\Debug\trace_event_synthetic_delay.cc"
 					>
 				</File>
 				<File
-					RelativePath=".\metrics\histogram_base.h"
+					RelativePath=".\Debug\trace_event_synthetic_delay.h"
 					>
 				</File>
 				<File
-					RelativePath=".\metrics\histogram_flattener.h"
+					RelativePath=".\Debug\trace_event_system_stats_monitor.cc"
 					>
 				</File>
 				<File
-					RelativePath=".\metrics\histogram_samples.cc"
+					RelativePath=".\Debug\trace_event_system_stats_monitor.h"
 					>
 				</File>
 				<File
-					RelativePath=".\metrics\histogram_samples.h"
+					RelativePath=".\Debug\trace_event_win.cc"
 					>
 				</File>
 				<File
-					RelativePath=".\metrics\histogram_snapshot_manager.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\metrics\histogram_snapshot_manager.h"
-					>
-				</File>
-				<File
-					RelativePath=".\metrics\sample_vector.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\metrics\sample_vector.h"
-					>
-				</File>
-				<File
-					RelativePath=".\metrics\sparse_histogram.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\metrics\sparse_histogram.h"
-					>
-				</File>
-				<File
-					RelativePath=".\metrics\statistics_recorder.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\metrics\statistics_recorder.h"
-					>
-				</File>
-				<File
-					RelativePath=".\metrics\stats_counters.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\metrics\stats_counters.h"
-					>
-				</File>
-				<File
-					RelativePath=".\metrics\stats_table.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\metrics\stats_table.h"
+					RelativePath=".\Debug\trace_event_win.h"
 					>
 				</File>
 			</Filter>
 			<Filter
-				Name="files"
+				Name="task"
 				>
 				<File
-					RelativePath=".\files\dir_reader_fallback.h"
+					RelativePath=".\task\cancelable_task_tracker.cc"
 					>
 				</File>
 				<File
-					RelativePath=".\files\file_path_watcher.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\files\file_path_watcher.h"
-					>
-				</File>
-				<File
-					RelativePath=".\files\file_path_watcher_win.cc"
+					RelativePath=".\task\cancelable_task_tracker.h"
 					>
 				</File>
 			</Filter>
 			<Filter
-				Name="json"
+				Name="allocator"
+				>
+			</Filter>
+		</Filter>
+		<Filter
+			Name="build"
+			>
+			<File
+				RelativePath="..\build\build_config.h"
+				>
+			</File>
+		</Filter>
+		<Filter
+			Name="third_party"
+			>
+			<Filter
+				Name="modp_b64"
 				>
 				<File
-					RelativePath=".\json\json_file_value_serializer.cc"
+					RelativePath="..\third_party\modp_b64\modp_b64.cc"
 					>
 				</File>
 				<File
-					RelativePath=".\json\json_file_value_serializer.h"
+					RelativePath="..\third_party\modp_b64\modp_b64.h"
 					>
 				</File>
 				<File
-					RelativePath=".\json\json_parser.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\json\json_parser.h"
-					>
-				</File>
-				<File
-					RelativePath=".\json\json_reader.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\json\json_reader.h"
-					>
-				</File>
-				<File
-					RelativePath=".\json\json_string_value_serializer.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\json\json_string_value_serializer.h"
-					>
-				</File>
-				<File
-					RelativePath=".\json\json_value_converter.h"
-					>
-				</File>
-				<File
-					RelativePath=".\json\json_writer.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\json\json_writer.h"
-					>
-				</File>
-				<File
-					RelativePath=".\json\string_escape.cc"
-					>
-				</File>
-				<File
-					RelativePath=".\json\string_escape.h"
+					RelativePath="..\third_party\modp_b64\modp_b64_data.h"
 					>
 				</File>
 			</Filter>

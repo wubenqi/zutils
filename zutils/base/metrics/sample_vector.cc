@@ -15,36 +15,37 @@ typedef HistogramBase::Count Count;
 typedef HistogramBase::Sample Sample;
 
 SampleVector::SampleVector(const BucketRanges* bucket_ranges)
-    : counts_(bucket_ranges->size() - 1),
+    : counts_(bucket_ranges->bucket_count()),
       bucket_ranges_(bucket_ranges) {
-  CHECK_GE(bucket_ranges_->size(), 2u);
+  CHECK_GE(bucket_ranges_->bucket_count(), 1u);
 }
 
 SampleVector::~SampleVector() {}
 
 void SampleVector::Accumulate(Sample value, Count count) {
   size_t bucket_index = GetBucketIndex(value);
-  counts_[bucket_index] += count;
+  subtle::NoBarrier_Store(&counts_[bucket_index],
+      subtle::NoBarrier_Load(&counts_[bucket_index]) + count);
   IncreaseSum(count * value);
   IncreaseRedundantCount(count);
 }
 
 Count SampleVector::GetCount(Sample value) const {
   size_t bucket_index = GetBucketIndex(value);
-  return counts_[bucket_index];
+  return subtle::NoBarrier_Load(&counts_[bucket_index]);
 }
 
 Count SampleVector::TotalCount() const {
   Count count = 0;
   for (size_t i = 0; i < counts_.size(); i++) {
-    count += counts_[i];
+    count += subtle::NoBarrier_Load(&counts_[i]);
   }
   return count;
 }
 
 Count SampleVector::GetCountAtIndex(size_t bucket_index) const {
-  DCHECK(bucket_index >= 0 && bucket_index < counts_.size());
-  return counts_[bucket_index];
+  DCHECK(bucket_index < counts_.size());
+  return subtle::NoBarrier_Load(&counts_[bucket_index]);
 }
 
 scoped_ptr<SampleCountIterator> SampleVector::Iterator() const {
@@ -53,7 +54,7 @@ scoped_ptr<SampleCountIterator> SampleVector::Iterator() const {
 }
 
 bool SampleVector::AddSubtractImpl(SampleCountIterator* iter,
-                                   HistogramSamples::Instruction instruction) {
+                                   HistogramSamples::Operator op) {
   HistogramBase::Sample min;
   HistogramBase::Sample max;
   HistogramBase::Count count;
@@ -65,8 +66,10 @@ bool SampleVector::AddSubtractImpl(SampleCountIterator* iter,
     if (min == bucket_ranges_->range(index) &&
         max == bucket_ranges_->range(index + 1)) {
       // Sample matches this bucket!
-      counts_[index] +=
-          (instruction ==  HistogramSamples::ADD) ? count : -count;
+      HistogramBase::Count old_counts =
+          subtle::NoBarrier_Load(&counts_[index]);
+      subtle::NoBarrier_Store(&counts_[index],
+          old_counts + ((op ==  HistogramSamples::ADD) ? count : -count));
       iter->Next();
     } else if (min > bucket_ranges_->range(index)) {
       // Sample is larger than current bucket range. Try next.
@@ -84,7 +87,7 @@ bool SampleVector::AddSubtractImpl(SampleCountIterator* iter,
 // Use simple binary search.  This is very general, but there are better
 // approaches if we knew that the buckets were linearly distributed.
 size_t SampleVector::GetBucketIndex(Sample value) const {
-  size_t bucket_count = bucket_ranges_->size() - 1;
+  size_t bucket_count = bucket_ranges_->bucket_count();
   CHECK_GE(bucket_count, 1u);
   CHECK_GE(value, bucket_ranges_->range(0));
   CHECK_LT(value, bucket_ranges_->range(bucket_count));
@@ -113,9 +116,11 @@ SampleVectorIterator::SampleVectorIterator(const vector<Count>* counts,
     : counts_(counts),
       bucket_ranges_(bucket_ranges),
       index_(0) {
-  CHECK_GT(bucket_ranges_->size(), counts_->size());
+  CHECK_GE(bucket_ranges_->bucket_count(), counts_->size());
   SkipEmptyBuckets();
 }
+
+SampleVectorIterator::~SampleVectorIterator() {}
 
 bool SampleVectorIterator::Done() const {
   return index_ >= counts_->size();
@@ -136,7 +141,7 @@ void SampleVectorIterator::Get(HistogramBase::Sample* min,
   if (max != NULL)
     *max = bucket_ranges_->range(index_ + 1);
   if (count != NULL)
-    *count = (*counts_)[index_];
+    *count = subtle::NoBarrier_Load(&(*counts_)[index_]);
 }
 
 bool SampleVectorIterator::GetBucketIndex(size_t* index) const {
@@ -151,7 +156,7 @@ void SampleVectorIterator::SkipEmptyBuckets() {
     return;
 
   while (index_ < counts_->size()) {
-    if ((*counts_)[index_] != 0)
+    if (subtle::NoBarrier_Load(&(*counts_)[index_]) != 0)
       return;
     index_++;
   }

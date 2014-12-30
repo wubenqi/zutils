@@ -13,9 +13,10 @@
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted.h"
-#include "base/message_loop.h"
-#include "base/message_loop_proxy.h"
+#include "base/message_loop/message_loop.h"
+#include "base/message_loop/message_loop_proxy.h"
 #include "base/observer_list.h"
+#include "base/stl_util.h"
 #include "base/threading/platform_thread.h"
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -107,7 +108,7 @@ class ObserverListThreadSafe
   void AddObserver(ObserverType* obs) {
     // If there is not a current MessageLoop, it is impossible to notify on it,
     // so do not add the observer.
-    if (!MessageLoop::current())
+    if (!base::MessageLoop::current())
       return;
 
     ObserverList<ObserverType>* list = NULL;
@@ -218,10 +219,7 @@ class ObserverListThreadSafe
   };
 
   ~ObserverListThreadSafe() {
-    typename ObserversListMap::const_iterator it;
-    for (it = observer_lists_.begin(); it != observer_lists_.end(); ++it)
-      delete (*it).second;
-    observer_lists_.clear();
+    STLDeleteValues(&observer_lists_);
   }
 
   template <class Method, class Params>

@@ -13,28 +13,23 @@
 #include "base/logging.h"
 #include "base/move.h"
 
-namespace base {
-namespace win {
-
 // TODO(rvargas): remove this with the rest of the verifier.
 #if defined(COMPILER_MSVC)
-// MSDN says to #include <intrin.h>, but that breaks the VS2005 build.
-extern "C" {
-  void* _ReturnAddress();
-}
+#include <intrin.h>
 #define BASE_WIN_GET_CALLER _ReturnAddress()
 #elif defined(COMPILER_GCC)
 #define BASE_WIN_GET_CALLER __builtin_extract_return_addr(\\
     __builtin_return_address(0))
 #endif
 
+namespace base {
+namespace win {
+
 // Generic wrapper for raw handles that takes care of closing handles
 // automatically. The class interface follows the style of
-// the ScopedStdioHandle class with a few additions:
+// the ScopedFILE class with one addition:
 //   - IsValid() method can tolerate multiple invalid handle values such as NULL
 //     and INVALID_HANDLE_VALUE (-1) for Win32 handles.
-//   - Receive() method allows to receive a handle value from a function that
-//     takes a raw handle pointer only.
 template <class Traits, class Verifier>
 class GenericScopedHandle {
   MOVE_ONLY_TYPE_FOR_CPP_03(GenericScopedHandle, RValue)
@@ -49,8 +44,8 @@ class GenericScopedHandle {
   }
 
   // Move constructor for C++03 move emulation of this type.
-  GenericScopedHandle(RValue& other) : handle_(Traits::NullHandle()) {
-    Set(other.Take());
+  GenericScopedHandle(RValue other) : handle_(Traits::NullHandle()) {
+    Set(other.object->Take());
   }
 
   ~GenericScopedHandle() {
@@ -62,9 +57,9 @@ class GenericScopedHandle {
   }
 
   // Move operator= for C++03 move emulation of this type.
-  GenericScopedHandle& operator=(RValue& other) {
-    if (this != &other) {
-      Set(other.Take());
+  GenericScopedHandle& operator=(RValue other) {
+    if (this != other.object) {
+      Set(other.object->Take());
     }
     return *this;
   }
@@ -87,15 +82,6 @@ class GenericScopedHandle {
 
   operator Handle() const {
     return handle_;
-  }
-
-  Handle* Receive() {
-    DCHECK(!Traits::IsHandleValid(handle_)) << "Handle must be NULL";
-
-    // We cannot track this case :(. Just tell the verifier about it.
-    Verifier::StartTracking(INVALID_HANDLE_VALUE, this, BASE_WIN_GET_CALLER,
-                            tracked_objects::GetProgramCounter());
-    return &handle_;
   }
 
   // Transfers ownership away from this object.

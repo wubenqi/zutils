@@ -11,13 +11,13 @@
 
 #include "base/base_paths.h"
 #include "base/environment.h"
-#include "base/file_path.h"
-#include "base/file_util.h"
+#include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
-#include "base/path_service.h"
-#include "base/process_util.h"
 #include "base/nix/xdg_util.h"
+#include "base/path_service.h"
+#include "base/process/process_metrics.h"
 #include "build/build_config.h"
 
 #if defined(OS_FREEBSD)
@@ -36,7 +36,7 @@ bool PathProviderPosix(int key, FilePath* result) {
     case base::FILE_MODULE: {  // TODO(evanm): is this correct?
 #if defined(OS_LINUX)
       FilePath bin_dir;
-      if (!file_util::ReadSymbolicLink(FilePath(kProcSelfExe), &bin_dir)) {
+      if (!ReadSymbolicLink(FilePath(kProcSelfExe), &bin_dir)) {
         NOTREACHED() << "Unable to resolve " << kProcSelfExe << ".";
         return false;
       }
@@ -80,7 +80,7 @@ bool PathProviderPosix(int key, FilePath* result) {
       std::string cr_source_root;
       if (env->GetVar("CR_SOURCE_ROOT", &cr_source_root)) {
         path = FilePath(cr_source_root);
-        if (file_util::PathExists(path)) {
+        if (base::PathExists(path)) {
           *result = path;
           return true;
         } else {
@@ -99,11 +99,9 @@ bool PathProviderPosix(int key, FilePath* result) {
                   << "Try running from your chromium/src directory.";
       return false;
     }
-#if 0	
     case base::DIR_USER_DESKTOP:
       *result = base::nix::GetXDGUserDirectory("DESKTOP", "Desktop");
       return true;
-  
     case base::DIR_CACHE: {
       scoped_ptr<base::Environment> env(base::Environment::Create());
       FilePath cache_dir(base::nix::GetXDGDirectory(env.get(), "XDG_CACHE_HOME",
@@ -111,10 +109,6 @@ bool PathProviderPosix(int key, FilePath* result) {
       *result = cache_dir;
       return true;
     }
-    case base::DIR_HOME:
-      *result = file_util::GetHomeDir();
-      return true;
-#endif	
   }
   return false;
 }

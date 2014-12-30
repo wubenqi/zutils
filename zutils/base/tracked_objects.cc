@@ -4,19 +4,26 @@
 
 #include "base/tracked_objects.h"
 
-#include <math.h>
+#include <limits.h>
 #include <stdlib.h>
 
-#include "base/format_macros.h"
-#include "base/memory/scoped_ptr.h"
-#include "base/process_util.h"
+#include "base/atomicops.h"
+#include "base/base_switches.h"
+#include "base/command_line.h"
+#include "base/compiler_specific.h"
+#include "base/debug/leak_annotations.h"
+#include "base/logging.h"
+#include "base/process/process_handle.h"
 #include "base/profiler/alternate_timer.h"
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 #include "base/third_party/valgrind/memcheck.h"
-#include "base/threading/thread_restrictions.h"
-#include "base/port.h"
+#include "base/tracking_info.h"
 
 using base::TimeDelta;
+
+namespace base {
+class TimeDelta;
+}
 
 namespace tracked_objects {
 
@@ -47,6 +54,32 @@ const ThreadData::Status kInitialStartupState =
 // problem with its presence).
 static const bool kAllowAlternateTimeSourceHandling = true;
 
+inline bool IsProfilerTimingEnabled() {
+  enum {
+    UNDEFINED_TIMING,
+    ENABLED_TIMING,
+    DISABLED_TIMING,
+  };
+  static base::subtle::Atomic32 timing_enabled = UNDEFINED_TIMING;
+  // Reading |timing_enabled| is done without barrier because multiple
+  // initialization is not an issue while the barrier can be relatively costly
+  // given that this method is sometimes called in a tight loop.
+  base::subtle::Atomic32 current_timing_enabled =
+      base::subtle::NoBarrier_Load(&timing_enabled);
+  if (current_timing_enabled == UNDEFINED_TIMING) {
+    if (!CommandLine::InitializedForCurrentProcess())
+      return true;
+    current_timing_enabled =
+        (CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+             switches::kProfilerTiming) ==
+         switches::kProfilerTimingDisabledValue)
+            ? DISABLED_TIMING
+            : ENABLED_TIMING;
+    base::subtle::NoBarrier_Store(&timing_enabled, current_timing_enabled);
+  }
+  return current_timing_enabled == ENABLED_TIMING;
+}
+
 }  // namespace
 
 //------------------------------------------------------------------------------
@@ -74,7 +107,9 @@ DeathData::DeathData(int count) {
 void DeathData::RecordDeath(const int32 queue_duration,
                             const int32 run_duration,
                             int32 random_number) {
-  ++count_;
+  // We'll just clamp at INT_MAX, but we should note this in the UI as such.
+  if (count_ < INT_MAX)
+    ++count_;
   queue_duration_sum_ += queue_duration;
   run_duration_sum_ += run_duration;
 
@@ -89,11 +124,7 @@ void DeathData::RecordDeath(const int32 queue_duration,
   // don't clamp count_... but that should be inconsequentially likely).
   // We ignore the fact that we correlated our selection of a sample to the run
   // and queue times (i.e., we used them to generate random_number).
-  if (count_ <= 0) {  // Handle wrapping of count_, such as in bug 138961.
-    CHECK_GE(count_ - 1, 0);  // Detect memory corruption.
-    // We'll just clamp at INT_MAX, but we should note this in the UI as such.
-    count_ = INT_MAX;
-  }
+  CHECK_GT(count_, 0);
   if (0 == (random_number % count_)) {
     queue_duration_sample_ = queue_duration;
     run_duration_sample_ = run_duration;
@@ -260,6 +291,7 @@ void ThreadData::PushToHeadOfList() {
   // Toss in a hint of randomness (atop the uniniitalized value).
   (void)VALGRIND_MAKE_MEM_DEFINED_IF_ADDRESSABLE(&random_number_,
                                                  sizeof(random_number_));
+  MSAN_UNPOISON(&random_number_, sizeof(random_number_));
   random_number_ += static_cast<int32>(this - static_cast<ThreadData*>(0));
   random_number_ ^= (Now() - TrackedTime()).InMilliseconds();
 
@@ -464,16 +496,6 @@ void ThreadData::TallyRunOnNamedThreadIfTracking(
   if (!current_thread_data)
     return;
 
-  // To avoid conflating our stats with the delay duration in a PostDelayedTask,
-  // we identify such tasks, and replace their post_time with the time they
-  // were scheduled (requested?) to emerge from the delayed task queue. This
-  // means that queueing delay for such tasks will show how long they went
-  // unserviced, after they *could* be serviced.  This is the same stat as we
-  // have for non-delayed tasks, and we consistently call it queueing delay.
-  TrackedTime effective_post_time = completed_task.delayed_run_time.is_null()
-      ? tracked_objects::TrackedTime(completed_task.time_posted)
-      : tracked_objects::TrackedTime(completed_task.delayed_run_time);
-
   // Watch out for a race where status_ is changing, and hence one or both
   // of start_of_run or end_of_run is zero.  In that case, we didn't bother to
   // get a time value since we "weren't tracking" and we were trying to be
@@ -482,7 +504,8 @@ void ThreadData::TallyRunOnNamedThreadIfTracking(
   int32 queue_duration = 0;
   int32 run_duration = 0;
   if (!start_of_run.is_null()) {
-    queue_duration = (start_of_run - effective_post_time).InMilliseconds();
+    queue_duration = (start_of_run - completed_task.EffectiveTimePosted())
+        .InMilliseconds();
     if (!end_of_run.is_null())
       run_duration = (end_of_run - start_of_run).InMilliseconds();
   }
@@ -507,10 +530,10 @@ void ThreadData::TallyRunOnWorkerThreadIfTracking(
   // TODO(jar): Support the option to coalesce all worker-thread activity under
   // one ThreadData instance that uses locks to protect *all* access.  This will
   // reduce memory (making it provably bounded), but run incrementally slower
-  // (since we'll use locks on TallyBirth and TallyDeath).  The good news is
-  // that the locks on TallyDeath will be *after* the worker thread has run, and
-  // hence nothing will be waiting for the completion (... besides some other
-  // thread that might like to run).  Also, the worker threads tasks are
+  // (since we'll use locks on TallyABirth and TallyADeath).  The good news is
+  // that the locks on TallyADeath will be *after* the worker thread has run,
+  // and hence nothing will be waiting for the completion (... besides some
+  // other thread that might like to run).  Also, the worker threads tasks are
   // generally longer, and hence the cost of the lock may perchance be amortized
   // over the long task's lifetime.
   ThreadData* current_thread_data = Get();
@@ -551,8 +574,6 @@ void ThreadData::TallyRunInAScopedRegionIfTracking(
     run_duration = (end_of_run - start_of_run).InMilliseconds();
   current_thread_data->TallyADeath(*birth, queue_duration, run_duration);
 }
-
-const std::string ThreadData::thread_name() const { return thread_name_; }
 
 // static
 void ThreadData::SnapshotAllExecutedTasks(bool reset_max,
@@ -762,7 +783,7 @@ void ThreadData::SetAlternateTimeSource(NowFunction* now_function) {
 TrackedTime ThreadData::Now() {
   if (kAllowAlternateTimeSourceHandling && now_function_)
     return TrackedTime::FromMilliseconds((*now_function_)());
-  if (kTrackAllTaskObjects && TrackingStatus())
+  if (kTrackAllTaskObjects && IsProfilerTimingEnabled() && TrackingStatus())
     return TrackedTime::Now();
   return TrackedTime();  // Super fast when disabled, or not compiled.
 }
@@ -772,11 +793,14 @@ void ThreadData::EnsureCleanupWasCalled(int major_threads_shutdown_count) {
   base::AutoLock lock(*list_lock_.Pointer());
   if (worker_thread_data_creation_count_ == 0)
     return;  // We haven't really run much, and couldn't have leaked.
+
+  // TODO(jar): until this is working on XP, don't run the real test.
+#if 0
   // Verify that we've at least shutdown/cleanup the major namesd threads.  The
   // caller should tell us how many thread shutdowns should have taken place by
   // now.
-  return;  // TODO(jar): until this is working on XP, don't run the real test.
   CHECK_GT(cleanup_count_, major_threads_shutdown_count);
+#endif
 }
 
 // static
@@ -810,8 +834,14 @@ void ThreadData::ShutdownSingleThreadedCleanup(bool leak) {
   // To avoid any chance of racing in unit tests, which is the only place we
   // call this function, we may sometimes leak all the data structures we
   // recovered, as they may still be in use on threads from prior tests!
-  if (leak)
+  if (leak) {
+    ThreadData* thread_data = thread_data_list;
+    while (thread_data) {
+      ANNOTATE_LEAKING_OBJECT_PTR(thread_data);
+      thread_data = thread_data->next();
+    }
     return;
+  }
 
   // When we want to cleanup (on a single thread), here is what we do.
 

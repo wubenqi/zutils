@@ -6,6 +6,7 @@
 
 #include "base/bind.h"
 #include "base/compiler_specific.h"
+#include "base/debug/leak_annotations.h"
 #include "base/lazy_instance.h"
 #include "base/task_runner.h"
 #include "base/threading/post_task_and_reply_impl.h"
@@ -17,7 +18,8 @@ namespace {
 
 class PostTaskAndReplyWorkerPool : public internal::PostTaskAndReplyImpl {
  public:
-  PostTaskAndReplyWorkerPool(bool task_is_slow) : task_is_slow_(task_is_slow) {
+  explicit PostTaskAndReplyWorkerPool(bool task_is_slow)
+      : task_is_slow_(task_is_slow) {
   }
 
  private:
@@ -36,7 +38,7 @@ class PostTaskAndReplyWorkerPool : public internal::PostTaskAndReplyImpl {
 // Note that this class is RefCountedThreadSafe (inherited from TaskRunner).
 class WorkerPoolTaskRunner : public TaskRunner {
  public:
-  WorkerPoolTaskRunner(bool tasks_are_slow);
+  explicit WorkerPoolTaskRunner(bool tasks_are_slow);
 
   // TaskRunner implementation
   virtual bool PostDelayedTask(const tracked_objects::Location& from_here,
@@ -103,6 +105,12 @@ bool WorkerPool::PostTaskAndReply(const tracked_objects::Location& from_here,
                                   const Closure& task,
                                   const Closure& reply,
                                   bool task_is_slow) {
+  // Do not report PostTaskAndReplyRelay leaks in tests. There's nothing we can
+  // do about them because WorkerPool doesn't have a flushing API.
+  // http://crbug.com/248513
+  // http://crbug.com/290897
+  // Note: this annotation does not cover tasks posted through a TaskRunner.
+  ANNOTATE_SCOPED_MEMORY_LEAK;
   return PostTaskAndReplyWorkerPool(task_is_slow).PostTaskAndReply(
       from_here, task, reply);
 }

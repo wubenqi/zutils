@@ -5,46 +5,53 @@
 #include "base/win/win_util.h"
 
 #include <aclapi.h>
+#include <lm.h>
+#include <powrprof.h>
+#include <shellapi.h>
+#include <shlobj.h>
 #include <shobjidl.h>  // Must be before propkey.
 #include <initguid.h>
 #include <propkey.h>
 #include <propvarutil.h>
 #include <sddl.h>
-#include <shlobj.h>
+#include <signal.h>
+#include <stdlib.h>
 
+#include "base/lazy_instance.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
-#include "base/win/registry.h"
-#include "base/string_util.h"
-#include "base/stringprintf.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "base/threading/thread_restrictions.h"
+#include "base/win/metro.h"
+#include "base/win/registry.h"
+#include "base/win/scoped_co_mem.h"
 #include "base/win/scoped_handle.h"
+#include "base/win/scoped_propvariant.h"
 #include "base/win/windows_version.h"
 
 namespace {
 
-// TODO(gab): These definitions are temporary and should be removed once the
-// win8 SDK defines them.
-DEFINE_PROPERTYKEY(PKEY_AppUserModel_DualMode, 0x9F4C2855, 0x9F79,
-                   0x4B39, 0xA8, 0xD0, 0xE1, 0xD4, 0x2D, 0xE1, 0xD5, 0xF3, 11);
-DEFINE_PROPERTYKEY(PKEY_AppUserModel_DualMode_UK, 0x9F4C2855, 0x9F79,
-                   0x4B39, 0xA8, 0xD0, 0xE1, 0xD4, 0x2D, 0xE1, 0xD5, 0xF3, 18);
-
 // Sets the value of |property_key| to |property_value| in |property_store|.
-// Clears the PropVariant contained in |property_value|.
 bool SetPropVariantValueForPropertyStore(
     IPropertyStore* property_store,
     const PROPERTYKEY& property_key,
-    PROPVARIANT* property_value) {
+    const base::win::ScopedPropVariant& property_value) {
   DCHECK(property_store);
 
-  HRESULT result = property_store->SetValue(property_key, *property_value);
+  HRESULT result = property_store->SetValue(property_key, property_value.get());
   if (result == S_OK)
     result = property_store->Commit();
-
-  PropVariantClear(property_value);
   return SUCCEEDED(result);
 }
+
+void __cdecl ForceCrashOnSigAbort(int) {
+  *((int*)0) = 0x1337;
+}
+
+const wchar_t kWindows8OSKRegPath[] =
+    L"Software\\Classes\\CLSID\\{054AAE20-4BEA-4347-8A35-64A533254A9D}"
+    L"\\LocalServer32";
 
 }  // namespace
 
@@ -77,7 +84,7 @@ bool GetUserSidString(std::wstring* user_sid) {
   base::win::ScopedHandle token_scoped(token);
 
   DWORD size = sizeof(TOKEN_USER) + SECURITY_MAX_SID_SIZE;
-  scoped_array<BYTE> user_bytes(new BYTE[size]);
+  scoped_ptr<BYTE[]> user_bytes(new BYTE[size]);
   TOKEN_USER* user = reinterpret_cast<TOKEN_USER*>(user_bytes.get());
 
   if (!::GetTokenInformation(token, TokenUser, user, size, &size))
@@ -110,6 +117,11 @@ bool IsAltPressed() {
   return (::GetKeyState(VK_MENU) & 0x8000) == 0x8000;
 }
 
+bool IsAltGrPressed() {
+  return (::GetKeyState(VK_MENU) & 0x8000) == 0x8000 &&
+      (::GetKeyState(VK_CONTROL) & 0x8000) == 0x8000;
+}
+
 bool UserAccountControlIsEnabled() {
   // This can be slow if Windows ends up going to disk.  Should watch this key
   // for changes and only read it once, preferably on the file thread.
@@ -130,62 +142,45 @@ bool UserAccountControlIsEnabled() {
 bool SetBooleanValueForPropertyStore(IPropertyStore* property_store,
                                      const PROPERTYKEY& property_key,
                                      bool property_bool_value) {
-  PROPVARIANT property_value;
-  if (FAILED(InitPropVariantFromBoolean(property_bool_value, &property_value)))
+  ScopedPropVariant property_value;
+  if (FAILED(InitPropVariantFromBoolean(property_bool_value,
+                                        property_value.Receive()))) {
     return false;
+  }
 
   return SetPropVariantValueForPropertyStore(property_store,
                                              property_key,
-                                             &property_value);
-}
-
-bool SetUInt32ValueForPropertyStore(IPropertyStore* property_store,
-                                    const PROPERTYKEY& property_key,
-                                    uint32 property_uint32_value) {
-  PROPVARIANT property_value;
-  if (FAILED(InitPropVariantFromUInt32(property_uint32_value, &property_value)))
-    return false;
-
-  return SetPropVariantValueForPropertyStore(property_store,
-                                             property_key,
-                                             &property_value);
+                                             property_value);
 }
 
 bool SetStringValueForPropertyStore(IPropertyStore* property_store,
                                     const PROPERTYKEY& property_key,
                                     const wchar_t* property_string_value) {
-  PROPVARIANT property_value;
-  if (FAILED(InitPropVariantFromString(property_string_value, &property_value)))
+  ScopedPropVariant property_value;
+  if (FAILED(InitPropVariantFromString(property_string_value,
+                                       property_value.Receive()))) {
     return false;
+  }
 
   return SetPropVariantValueForPropertyStore(property_store,
                                              property_key,
-                                             &property_value);
+                                             property_value);
 }
 
-//bool SetAppIdForPropertyStore(IPropertyStore* property_store,
-//                              const wchar_t* app_id) {
-//  // App id should be less than 64 chars and contain no space. And recommended
-//  // format is CompanyName.ProductName[.SubProduct.ProductNumber].
-//  // See http://msdn.microsoft.com/en-us/library/dd378459%28VS.85%29.aspx
-//  DCHECK(lstrlen(app_id) < 64 && wcschr(app_id, L' ') == NULL);
-//
-//  return SetStringValueForPropertyStore(property_store,
-//                                        PKEY_AppUserModel_ID,
-//                                        app_id);
-//}
+bool SetAppIdForPropertyStore(IPropertyStore* property_store,
+                              const wchar_t* app_id) {
+#if defined(PATCH_BY_WUBENQI)
+  // vs2008, PKEY_AppUserModel_ID 未定义，忽略
+  return false;
+#else
+  // App id should be less than 64 chars and contain no space. And recommended
+  // format is CompanyName.ProductName[.SubProduct.ProductNumber].
+  // See http://msdn.microsoft.com/en-us/library/dd378459%28VS.85%29.aspx
+  DCHECK(lstrlen(app_id) < 64 && wcschr(app_id, L' ') == NULL);
 
-bool SetDualModeForPropertyStore(IPropertyStore* property_store,
-                                 bool is_dual_mode) {
-  return SetBooleanValueForPropertyStore(property_store,
-                                         PKEY_AppUserModel_DualMode,
-                                         is_dual_mode) &&
-         // TODO (gab): This property no longer exists in the final Win8 release
-         // and should be deleted from all shortcuts as it could interfere with
-         // a future (Win9+) property.
-         SetUInt32ValueForPropertyStore(property_store,
-                                        PKEY_AppUserModel_DualMode_UK,
-                                        is_dual_mode ? 1U : 0U);
+  return SetStringValueForPropertyStore(property_store,
+                                        PKEY_AppUserModel_ID,
+#endif
 }
 
 static const char16 kAutoRunKeyPath[] =
@@ -218,37 +213,197 @@ bool ShouldCrashOnProcessDetach() {
   return g_crash_on_process_detach;
 }
 
-//bool IsMachineATablet() {
-//  if (base::win::GetVersion() < base::win::VERSION_WIN7)
-//    return false;
-//  // TODO(ananta): Add keyboard detection logic if it can be made reliable.
-//  const int kPenInput = NID_INTEGRATED_PEN | NID_EXTERNAL_PEN;
-//  const int kMultiTouch = NID_INTEGRATED_TOUCH | NID_MULTI_INPUT | NID_READY;
-//  int sm = GetSystemMetrics(SM_DIGITIZER);
-//  return ((sm & kMultiTouch) == kMultiTouch) && ((sm & kPenInput) == 0);
-//}
+void SetAbortBehaviorForCrashReporting() {
+  // Prevent CRT's abort code from prompting a dialog or trying to "report" it.
+  // Disabling the _CALL_REPORTFAULT behavior is important since otherwise it
+  // has the sideffect of clearing our exception filter, which means we
+  // don't get any crash.
+  _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+
+  // Set a SIGABRT handler for good measure. We will crash even if the default
+  // is left in place, however this allows us to crash earlier. And it also
+  // lets us crash in response to code which might directly call raise(SIGABRT)
+  signal(SIGABRT, ForceCrashOnSigAbort);
+}
+
+bool IsTabletDevice() {
+#if defined(PATCH_BY_WUBENQI)
+  // vs2008, SM_MAXIMUMTOUCHES,SM_SYSTEMDOCKED,PlatformRoleMobile,SM_CONVERTIBLESLATEMODE 未定义，忽略
+  return false;
+#else
+  if (GetSystemMetrics(SM_MAXIMUMTOUCHES) == 0)
+    return false;
+
+  base::win::Version version = base::win::GetVersion();
+  if (version == base::win::VERSION_XP)
+    return (GetSystemMetrics(SM_TABLETPC) != 0);
+
+  // If the device is docked, the user is treating the device as a PC.
+  if (GetSystemMetrics(SM_SYSTEMDOCKED) != 0)
+    return false;
+
+  // PlatformRoleSlate was only added in Windows 8, but prior to Win8 it is
+  // still possible to check for a mobile power profile.
+  POWER_PLATFORM_ROLE role = PowerDeterminePlatformRole();
+  bool mobile_power_profile = (role == PlatformRoleMobile);
+  bool slate_power_profile = false;
+  if (version >= base::win::VERSION_WIN8)
+    slate_power_profile = (role == PlatformRoleSlate);
+
+  if (mobile_power_profile || slate_power_profile)
+    return (GetSystemMetrics(SM_CONVERTIBLESLATEMODE) == 0);
+
+  return false;
+#endif
+}
+
+bool DisplayVirtualKeyboard() {
+  if (base::win::GetVersion() < base::win::VERSION_WIN8)
+    return false;
+
+  static base::LazyInstance<string16>::Leaky osk_path =
+      LAZY_INSTANCE_INITIALIZER;
+
+  if (osk_path.Get().empty()) {
+    // We need to launch TabTip.exe from the location specified under the
+    // LocalServer32 key for the {{054AAE20-4BEA-4347-8A35-64A533254A9D}}
+    // CLSID.
+    // TabTip.exe is typically found at
+    // c:\program files\common files\microsoft shared\ink on English Windows.
+    // We don't want to launch TabTip.exe from
+    // c:\program files (x86)\common files\microsoft shared\ink. This path is
+    // normally found on 64 bit Windows.
+    base::win::RegKey key(HKEY_LOCAL_MACHINE,
+                          kWindows8OSKRegPath,
+                          KEY_READ | KEY_WOW64_64KEY);
+    DWORD osk_path_length = 1024;
+    if (key.ReadValue(NULL,
+                      WriteInto(&osk_path.Get(), osk_path_length),
+                      &osk_path_length,
+                      NULL) != ERROR_SUCCESS) {
+      DLOG(WARNING) << "Failed to read on screen keyboard path from registry";
+      return false;
+    }
+    size_t common_program_files_offset =
+        osk_path.Get().find(L"%CommonProgramFiles%");
+    // Typically the path to TabTip.exe read from the registry will start with
+    // %CommonProgramFiles% which needs to be replaced with the corrsponding
+    // expanded string.
+    // If the path does not begin with %CommonProgramFiles% we use it as is.
+    if (common_program_files_offset != string16::npos) {
+      // Preserve the beginning quote in the path.
+      osk_path.Get().erase(common_program_files_offset,
+                           wcslen(L"%CommonProgramFiles%"));
+      // The path read from the registry contains the %CommonProgramFiles%
+      // environment variable prefix. On 64 bit Windows the SHGetKnownFolderPath
+      // function returns the common program files path with the X86 suffix for
+      // the FOLDERID_ProgramFilesCommon value.
+      // To get the correct path to TabTip.exe we first read the environment
+      // variable CommonProgramW6432 which points to the desired common
+      // files path. Failing that we fallback to the SHGetKnownFolderPath API.
+
+      // We then replace the %CommonProgramFiles% value with the actual common
+      // files path found in the process.
+      string16 common_program_files_path;
+      scoped_ptr<wchar_t[]> common_program_files_wow6432;
+      DWORD buffer_size =
+          GetEnvironmentVariable(L"CommonProgramW6432", NULL, 0);
+      if (buffer_size) {
+        common_program_files_wow6432.reset(new wchar_t[buffer_size]);
+        GetEnvironmentVariable(L"CommonProgramW6432",
+                               common_program_files_wow6432.get(),
+                               buffer_size);
+        common_program_files_path = common_program_files_wow6432.get();
+        DCHECK(!common_program_files_path.empty());
+      } else {
+        base::win::ScopedCoMem<wchar_t> common_program_files;
+        if (FAILED(SHGetKnownFolderPath(FOLDERID_ProgramFilesCommon, 0, NULL,
+                                        &common_program_files))) {
+          return false;
+        }
+        common_program_files_path = common_program_files;
+      }
+
+      osk_path.Get().insert(1, common_program_files_path);
+    }
+  }
+
+  HINSTANCE ret = ::ShellExecuteW(NULL,
+                                  L"",
+                                  osk_path.Get().c_str(),
+                                  NULL,
+                                  NULL,
+                                  SW_SHOW);
+  return reinterpret_cast<int>(ret) > 32;
+}
+
+bool DismissVirtualKeyboard() {
+  if (base::win::GetVersion() < base::win::VERSION_WIN8)
+    return false;
+
+  // We dismiss the virtual keyboard by generating the ESC keystroke
+  // programmatically.
+  const wchar_t kOSKClassName[] = L"IPTip_Main_Window";
+  HWND osk = ::FindWindow(kOSKClassName, NULL);
+  if (::IsWindow(osk) && ::IsWindowEnabled(osk)) {
+    PostMessage(osk, WM_SYSCOMMAND, SC_CLOSE, 0);
+    return true;
+  }
+  return false;
+}
+
+typedef HWND (*MetroRootWindow) ();
+
+enum DomainEnrollementState {UNKNOWN = -1, NOT_ENROLLED, ENROLLED};
+static volatile long int g_domain_state = UNKNOWN;
+
+bool IsEnrolledToDomain() {
+  // Doesn't make any sense to retry inside a user session because joining a
+  // domain will only kick in on a restart.
+  if (g_domain_state == UNKNOWN) {
+    LPWSTR domain;
+    NETSETUP_JOIN_STATUS join_status;
+    if(::NetGetJoinInformation(NULL, &domain, &join_status) != NERR_Success)
+      return false;
+    ::NetApiBufferFree(domain);
+    ::InterlockedCompareExchange(&g_domain_state,
+                                 join_status == ::NetSetupDomainName ?
+                                     ENROLLED : NOT_ENROLLED,
+                                 UNKNOWN);
+  }
+
+  return g_domain_state == ENROLLED;
+}
+
+void SetDomainStateForTesting(bool state) {
+  g_domain_state = state ? ENROLLED : NOT_ENROLLED;
+}
 
 }  // namespace win
 }  // namespace base
 
 #ifdef _MSC_VER
-//
-// If the ASSERT below fails, please install Visual Studio 2005 Service Pack 1.
-//
-extern char VisualStudio2005ServicePack1Detection[10];
-COMPILE_ASSERT(sizeof(&VisualStudio2005ServicePack1Detection) == sizeof(void*),
-               VS2005SP1Detect);
-//
-// Chrome requires at least Service Pack 1 for Visual Studio 2005.
-//
+
+// There are optimizer bugs in x86 VS2012 pre-Update 1.
+#if _MSC_VER == 1700 && defined _M_IX86 && _MSC_FULL_VER < 170051106
+
+#pragma message("Relevant defines:")
+#define __STR2__(x) #x
+#define __STR1__(x) __STR2__(x)
+#define __PPOUT__(x) "#define " #x " " __STR1__(x)
+#if defined(_M_IX86)
+  #pragma message(__PPOUT__(_M_IX86))
+#endif
+#if defined(_M_X64)
+  #pragma message(__PPOUT__(_M_X64))
+#endif
+#if defined(_MSC_FULL_VER)
+  #pragma message(__PPOUT__(_MSC_FULL_VER))
+#endif
+
+#pragma message("Visual Studio 2012 x86 must be updated to at least Update 1")
+#error Must install Update 1 to Visual Studio 2012.
+#endif
+
 #endif  // _MSC_VER
 
-#ifndef COPY_FILE_COPY_SYMLINK
-#error You must install the Windows 2008 or Vista Software Development Kit and \
-set it as your default include path to build this library. You can grab it by \
-searching for "download windows sdk 2008" in your favorite web search engine.  \
-Also make sure you register the SDK with Visual Studio, by selecting \
-"Integrate Windows SDK with Visual Studio 2005" from the Windows SDK \
-menu (see Start - All Programs - Microsoft Windows SDK - \
-Visual Studio Registration).
-#endif

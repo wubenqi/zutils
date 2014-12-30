@@ -5,7 +5,7 @@
 #include "base/test/sequenced_worker_pool_owner.h"
 
 #include "base/location.h"
-#include "base/message_loop.h"
+#include "base/message_loop/message_loop.h"
 
 namespace base {
 
@@ -13,9 +13,7 @@ SequencedWorkerPoolOwner::SequencedWorkerPoolOwner(
     size_t max_threads,
     const std::string& thread_name_prefix)
     : constructor_message_loop_(MessageLoop::current()),
-      pool_(new SequencedWorkerPool(
-          max_threads, thread_name_prefix,
-          ALLOW_THIS_IN_INITIALIZER_LIST(this))),
+      pool_(new SequencedWorkerPool(max_threads, thread_name_prefix, this)),
       has_work_call_count_(0) {}
 
 SequencedWorkerPoolOwner::~SequencedWorkerPoolOwner() {
@@ -51,7 +49,7 @@ void SequencedWorkerPoolOwner::WillWaitForShutdown() {
 void SequencedWorkerPoolOwner::OnDestruct() {
   constructor_message_loop_->PostTask(
       FROM_HERE,
-      constructor_message_loop_->QuitClosure());
+      constructor_message_loop_->QuitWhenIdleClosure());
 }
 
 }  // namespace base

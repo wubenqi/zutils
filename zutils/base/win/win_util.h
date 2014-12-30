@@ -27,7 +27,7 @@
 #include <string>
 
 #include "base/base_export.h"
-#include "base/string16.h"
+#include "base/strings/string16.h"
 
 struct IPropertyStore;
 struct _tagpropertykey;
@@ -35,14 +35,6 @@ typedef _tagpropertykey PROPERTYKEY;
 
 namespace base {
 namespace win {
-
-// A Windows message reflected from other windows. This message is sent
-// with the following arguments:
-// hWnd - Target window
-// uMsg - kReflectedMessage
-// wParam - Should be 0
-// lParam - Pointer to MSG struct containing the original message.
-const int kReflectedMessage = WM_APP + 3;
 
 BASE_EXPORT void GetNonClientMetrics(NONCLIENTMETRICS* metrics);
 
@@ -58,6 +50,11 @@ BASE_EXPORT bool IsCtrlPressed();
 // Returns true if the alt key is currently pressed.
 BASE_EXPORT bool IsAltPressed();
 
+// Returns true if the altgr key is currently pressed.
+// Windows does not have specific key code and modifier bit and Alt+Ctrl key is
+// used as AltGr key in Windows.
+BASE_EXPORT bool IsAltGrPressed();
+
 // Returns false if user account control (UAC) has been disabled with the
 // EnableLUA registry flag. Returns true if user account control is enabled.
 // NOTE: The EnableLUA registry flag, which is ignored on Windows XP
@@ -66,7 +63,13 @@ BASE_EXPORT bool IsAltPressed();
 // if the OS is Vista or later.
 BASE_EXPORT bool UserAccountControlIsEnabled();
 
-// Sets the string value for given key in given IPropertyStore.
+// Sets the boolean value for a given key in given IPropertyStore.
+BASE_EXPORT bool SetBooleanValueForPropertyStore(
+    IPropertyStore* property_store,
+    const PROPERTYKEY& property_key,
+    bool property_bool_value);
+
+// Sets the string value for a given key in given IPropertyStore.
 BASE_EXPORT bool SetStringValueForPropertyStore(
     IPropertyStore* property_store,
     const PROPERTYKEY& property_key,
@@ -77,11 +80,6 @@ BASE_EXPORT bool SetStringValueForPropertyStore(
 // Win7.
 BASE_EXPORT bool SetAppIdForPropertyStore(IPropertyStore* property_store,
                                           const wchar_t* app_id);
-
-// Sets the DualModeApp property to |is_dual_mode| in |property_store|. This
-// method is intended for tagging dual mode applications in Win8+.
-BASE_EXPORT bool SetDualModeForPropertyStore(IPropertyStore* property_store,
-                                             bool is_dual_mode);
 
 // Adds the specified |command| using the specified |name| to the AutoRun key.
 // |root_key| could be HKCU or HKLM or the root of any user hive.
@@ -105,10 +103,14 @@ BASE_EXPORT bool ReadCommandFromAutoRun(HKEY root_key,
 BASE_EXPORT void SetShouldCrashOnProcessDetach(bool crash);
 BASE_EXPORT bool ShouldCrashOnProcessDetach();
 
-// A tablet by this definition is something that has integrated multi-touch
-// but is not also pen-enabled. For example a Thinkpad X220 tablet is not
-// considered a tabled while a Samsum 700T tablet is.
-BASE_EXPORT bool IsMachineATablet();
+// Adjusts the abort behavior so that crash reports can be generated when the
+// process is aborted.
+BASE_EXPORT void SetAbortBehaviorForCrashReporting();
+
+// A tablet is a device that is touch enabled and also is being used
+// "like a tablet".  This is used primarily for metrics in order to gain some
+// insight into how users use Chrome.
+BASE_EXPORT bool IsTabletDevice();
 
 // Get the size of a struct up to and including the specified member.
 // This is necessary to set compatible struct sizes for different versions
@@ -116,6 +118,21 @@ BASE_EXPORT bool IsMachineATablet();
 #define SIZEOF_STRUCT_WITH_SPECIFIED_LAST_MEMBER(struct_name, member) \
     offsetof(struct_name, member) + \
     (sizeof static_cast<struct_name*>(NULL)->member)
+
+// Displays the on screen keyboard on Windows 8 and above. Returns true on
+// success.
+BASE_EXPORT bool DisplayVirtualKeyboard();
+
+// Dismisses the on screen keyboard if it is being displayed on Windows 8 and.
+// above. Returns true on success.
+BASE_EXPORT bool DismissVirtualKeyboard();
+
+// Returns true if the machine is enrolled to a domain.
+BASE_EXPORT bool IsEnrolledToDomain();
+
+// Used by tests to mock any wanted state. Call with |state| set to true to
+// simulate being in a domain and false otherwise.
+BASE_EXPORT void SetDomainStateForTesting(bool state);
 
 }  // namespace win
 }  // namespace base

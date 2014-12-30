@@ -6,33 +6,37 @@
 
 #include "base/bind.h"
 
+#if defined(OS_WIN)
+#include "base/message_loop/message_pump_dispatcher.h"
+#endif
+
 namespace base {
 
 RunLoop::RunLoop()
     : loop_(MessageLoop::current()),
-      weak_factory_(this),
       previous_run_loop_(NULL),
       run_depth_(0),
       run_called_(false),
       quit_called_(false),
       running_(false),
-      quit_when_idle_received_(false) {
-#if !defined(OS_MACOSX) && !defined(OS_ANDROID)
+      quit_when_idle_received_(false),
+      weak_factory_(this) {
+#if defined(OS_WIN)
    dispatcher_ = NULL;
 #endif
 }
 
-#if !defined(OS_MACOSX) && !defined(OS_ANDROID)
-RunLoop::RunLoop(MessageLoop::Dispatcher* dispatcher)
+#if defined(OS_WIN)
+RunLoop::RunLoop(MessagePumpDispatcher* dispatcher)
     : loop_(MessageLoop::current()),
-      weak_factory_(this),
       previous_run_loop_(NULL),
       dispatcher_(dispatcher),
       run_depth_(0),
       run_called_(false),
       quit_called_(false),
       running_(false),
-      quit_when_idle_received_(false) {
+      quit_when_idle_received_(false),
+      weak_factory_(this) {
 }
 #endif
 

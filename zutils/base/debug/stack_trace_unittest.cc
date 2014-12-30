@@ -2,25 +2,41 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <limits>
 #include <sstream>
 #include <string>
 
 #include "base/debug/stack_trace.h"
 #include "base/logging.h"
+#include "base/process/kill.h"
+#include "base/process/process_handle.h"
+#include "base/test/test_timeouts.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "testing/multiprocess_func_list.h"
+
+#if defined(OS_POSIX) && !defined(OS_ANDROID) && !defined(OS_IOS)
+#include "base/test/multiprocess_test.h"
+#endif
 
 namespace base {
 namespace debug {
+
+#if defined(OS_POSIX) && !defined(OS_ANDROID) && !defined(OS_IOS)
+typedef MultiProcessTest StackTraceTest;
+#else
+typedef testing::Test StackTraceTest;
+#endif
 
 // Note: On Linux, this test currently only fully works on Debug builds.
 // See comments in the #ifdef soup if you intend to change this.
 #if defined(OS_WIN)
 // Always fails on Windows: crbug.com/32070
-#define MAYBE_OutputToStream FAILS_OutputToStream
+#define MAYBE_OutputToStream DISABLED_OutputToStream
 #else
 #define MAYBE_OutputToStream OutputToStream
 #endif
-TEST(StackTrace, MAYBE_OutputToStream) {
+#if !defined(__UCLIBC__)
+TEST_F(StackTraceTest, MAYBE_OutputToStream) {
   StackTrace trace;
 
   // Dump the trace into a string.
@@ -69,7 +85,7 @@ TEST(StackTrace, MAYBE_OutputToStream) {
       << backtrace_message;
 
 #endif
-#elif defined(__GLIBCXX__)
+#elif defined(USE_SYMBOLIZE)
   // This branch is for gcc-compiled code, but not Mac due to the
   // above #if.
   // Expect a demangled symbol.
@@ -104,7 +120,7 @@ TEST(StackTrace, MAYBE_OutputToStream) {
 }
 
 // The test is used for manual testing, e.g., to see the raw output.
-TEST(StackTrace, DebugOutputToStream) {
+TEST_F(StackTraceTest, DebugOutputToStream) {
   StackTrace trace;
   std::ostringstream os;
   trace.OutputToStream(&os);
@@ -112,9 +128,104 @@ TEST(StackTrace, DebugOutputToStream) {
 }
 
 // The test is used for manual testing, e.g., to see the raw output.
-TEST(StackTrace, DebugPrintBacktrace) {
-  StackTrace().PrintBacktrace();
+TEST_F(StackTraceTest, DebugPrintBacktrace) {
+  StackTrace().Print();
 }
+#endif  // !defined(__UCLIBC__)
+
+#if defined(OS_POSIX) && !defined(OS_ANDROID)
+#if !defined(OS_IOS)
+MULTIPROCESS_TEST_MAIN(MismatchedMallocChildProcess) {
+  char* pointer = new char[10];
+  delete pointer;
+  return 2;
+}
+
+// Regression test for StackDumpingSignalHandler async-signal unsafety.
+// Combined with tcmalloc's debugallocation, that signal handler
+// and e.g. mismatched new[]/delete would cause a hang because
+// of re-entering malloc.
+TEST_F(StackTraceTest, AsyncSignalUnsafeSignalHandlerHang) {
+  ProcessHandle child = SpawnChild("MismatchedMallocChildProcess");
+  ASSERT_NE(kNullProcessHandle, child);
+  ASSERT_TRUE(WaitForSingleProcess(child, TestTimeouts::action_timeout()));
+}
+#endif  // !defined(OS_IOS)
+
+namespace {
+
+std::string itoa_r_wrapper(intptr_t i, size_t sz, int base, size_t padding) {
+  char buffer[1024];
+  CHECK_LE(sz, sizeof(buffer));
+
+  char* result = internal::itoa_r(i, buffer, sz, base, padding);
+  EXPECT_TRUE(result);
+  return std::string(buffer);
+}
+
+}  // namespace
+
+TEST_F(StackTraceTest, itoa_r) {
+  EXPECT_EQ("0", itoa_r_wrapper(0, 128, 10, 0));
+  EXPECT_EQ("-1", itoa_r_wrapper(-1, 128, 10, 0));
+
+  // Test edge cases.
+  if (sizeof(intptr_t) == 4) {
+    EXPECT_EQ("ffffffff", itoa_r_wrapper(-1, 128, 16, 0));
+    EXPECT_EQ("-2147483648",
+              itoa_r_wrapper(std::numeric_limits<intptr_t>::min(), 128, 10, 0));
+    EXPECT_EQ("2147483647",
+              itoa_r_wrapper(std::numeric_limits<intptr_t>::max(), 128, 10, 0));
+
+    EXPECT_EQ("80000000",
+              itoa_r_wrapper(std::numeric_limits<intptr_t>::min(), 128, 16, 0));
+    EXPECT_EQ("7fffffff",
+              itoa_r_wrapper(std::numeric_limits<intptr_t>::max(), 128, 16, 0));
+  } else if (sizeof(intptr_t) == 8) {
+    EXPECT_EQ("ffffffffffffffff", itoa_r_wrapper(-1, 128, 16, 0));
+    EXPECT_EQ("-9223372036854775808",
+              itoa_r_wrapper(std::numeric_limits<intptr_t>::min(), 128, 10, 0));
+    EXPECT_EQ("9223372036854775807",
+              itoa_r_wrapper(std::numeric_limits<intptr_t>::max(), 128, 10, 0));
+
+    EXPECT_EQ("8000000000000000",
+              itoa_r_wrapper(std::numeric_limits<intptr_t>::min(), 128, 16, 0));
+    EXPECT_EQ("7fffffffffffffff",
+              itoa_r_wrapper(std::numeric_limits<intptr_t>::max(), 128, 16, 0));
+  } else {
+    ADD_FAILURE() << "Missing test case for your size of intptr_t ("
+                  << sizeof(intptr_t) << ")";
+  }
+
+  // Test hex output.
+  EXPECT_EQ("688", itoa_r_wrapper(0x688, 128, 16, 0));
+  EXPECT_EQ("deadbeef", itoa_r_wrapper(0xdeadbeef, 128, 16, 0));
+
+  // Check that itoa_r respects passed buffer size limit.
+  char buffer[1024];
+  EXPECT_TRUE(internal::itoa_r(0xdeadbeef, buffer, 10, 16, 0));
+  EXPECT_TRUE(internal::itoa_r(0xdeadbeef, buffer, 9, 16, 0));
+  EXPECT_FALSE(internal::itoa_r(0xdeadbeef, buffer, 8, 16, 0));
+  EXPECT_FALSE(internal::itoa_r(0xdeadbeef, buffer, 7, 16, 0));
+  EXPECT_TRUE(internal::itoa_r(0xbeef, buffer, 5, 16, 4));
+  EXPECT_FALSE(internal::itoa_r(0xbeef, buffer, 5, 16, 5));
+  EXPECT_FALSE(internal::itoa_r(0xbeef, buffer, 5, 16, 6));
+
+  // Test padding.
+  EXPECT_EQ("1", itoa_r_wrapper(1, 128, 10, 0));
+  EXPECT_EQ("1", itoa_r_wrapper(1, 128, 10, 1));
+  EXPECT_EQ("01", itoa_r_wrapper(1, 128, 10, 2));
+  EXPECT_EQ("001", itoa_r_wrapper(1, 128, 10, 3));
+  EXPECT_EQ("0001", itoa_r_wrapper(1, 128, 10, 4));
+  EXPECT_EQ("00001", itoa_r_wrapper(1, 128, 10, 5));
+  EXPECT_EQ("688", itoa_r_wrapper(0x688, 128, 16, 0));
+  EXPECT_EQ("688", itoa_r_wrapper(0x688, 128, 16, 1));
+  EXPECT_EQ("688", itoa_r_wrapper(0x688, 128, 16, 2));
+  EXPECT_EQ("688", itoa_r_wrapper(0x688, 128, 16, 3));
+  EXPECT_EQ("0688", itoa_r_wrapper(0x688, 128, 16, 4));
+  EXPECT_EQ("00688", itoa_r_wrapper(0x688, 128, 16, 5));
+}
+#endif  // defined(OS_POSIX) && !defined(OS_ANDROID)
 
 }  // namespace debug
 }  // namespace base

@@ -15,7 +15,8 @@ def _CheckNoInterfacesInBase(input_api, output_api):
   for f in input_api.AffectedSourceFiles(input_api.FilterSourceFile):
     if (f.LocalPath().startswith('base/') and
         not "/test/" in f.LocalPath() and
-        not f.LocalPath().endswith('_unittest.mm')):
+        not f.LocalPath().endswith('_unittest.mm') and
+        not f.LocalPath().endswith('mac/sdk_forward_declarations.h')):
       contents = input_api.ReadFile(f)
       if pattern.search(contents):
         files.append(f)
@@ -47,9 +48,15 @@ def CheckChangeOnCommit(input_api, output_api):
   return results
 
 
-def GetPreferredTrySlaves():
-  return [
-    'linux_rel:sync_integration_tests',
-    'mac_rel:sync_integration_tests',
-    'win_rel:sync_integration_tests',
-  ]
+def GetPreferredTryMasters(project, change):
+  return {
+    'tryserver.chromium.linux': {
+      'linux_chromium_rel_swarming': set(['defaulttests']),
+    },
+    'tryserver.chromium.mac': {
+      'mac_chromium_rel_swarming': set(['defaulttests']),
+    },
+    'tryserver.chromium.win': {
+      'win_chromium_rel_swarming': set(['defaulttests']),
+    }
+  }

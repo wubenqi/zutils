@@ -106,7 +106,7 @@ class CopyCounter {
   }
 
   // Probing for copies from coercion.
-  CopyCounter(const DerivedCopyCounter& other)
+  explicit CopyCounter(const DerivedCopyCounter& other)
       : copies_(other.copies_),
         assigns_(other.assigns_) {
     (*copies_)++;
@@ -125,10 +125,6 @@ class CopyCounter {
 
   int copies() const {
     return *copies_;
-  }
-
-  int assigns() const {
-    return *assigns_;
   }
 
  private:
@@ -179,10 +175,6 @@ int Sum(int a, int b, int c, int d, int e, int f) {
   return a + b + c + d + e + f;
 }
 
-void OutputSum(int* output, int a, int b, int c, int d, int e) {
-  *output = a + b + c + d + e;
-}
-
 const char* CStringIdentity(const char* s) {
   return s;
 }
@@ -212,6 +204,10 @@ void PtrArgSet(int *n) {
 }
 
 int FunctionWithWeakFirstParam(WeakPtr<NoRef> o, int n) {
+  return n;
+}
+
+int FunctionWithScopedRefptrFirstParam(const scoped_refptr<HasRef>& o, int n) {
   return n;
 }
 
@@ -667,6 +663,21 @@ TEST_F(BindTest, ConstRef) {
   EXPECT_EQ(0, assigns);
 }
 
+TEST_F(BindTest, ScopedRefptr) {
+  // BUG: The scoped_refptr should cause the only AddRef()/Release() pair. But
+  // due to a bug in base::Bind(), there's an extra call when invoking the
+  // callback.
+  // https://code.google.com/p/chromium/issues/detail?id=251937
+  EXPECT_CALL(has_ref_, AddRef()).Times(2);
+  EXPECT_CALL(has_ref_, Release()).Times(2);
+
+  const scoped_refptr<StrictMock<HasRef> > refptr(&has_ref_);
+
+  Callback<int(void)> scoped_refptr_const_ref_cb =
+      Bind(&FunctionWithScopedRefptrFirstParam, base::ConstRef(refptr), 1);
+  EXPECT_EQ(1, scoped_refptr_const_ref_cb.Run());
+}
+
 // Test Owned() support.
 TEST_F(BindTest, Owned) {
   int deletes = 0;
@@ -770,7 +781,7 @@ TEST_F(BindTest, ArgumentCopies) {
   DerivedCopyCounter dervied(&copies, &assigns);
   Callback<void(CopyCounter)> coerce_cb =
       Bind(&VoidPolymorphic1<CopyCounter>);
-  coerce_cb.Run(dervied);
+  coerce_cb.Run(CopyCounter(dervied));
   EXPECT_GE(2, copies);
   EXPECT_EQ(0, assigns);
 }
@@ -801,6 +812,18 @@ TEST_F(BindTest, WindowsCallingConventions) {
   EXPECT_EQ(2, stdcall_cb.Run());
 }
 #endif
+
+#if (!defined(NDEBUG) || defined(DCHECK_ALWAYS_ON)) && GTEST_HAS_DEATH_TEST
+
+// Test null callbacks cause a DCHECK.
+TEST(BindDeathTest, NullCallback) {
+  base::Callback<void(int)> null_cb;
+  ASSERT_TRUE(null_cb.is_null());
+  EXPECT_DEATH(base::Bind(null_cb, 42), "");
+}
+
+#endif  // (!defined(NDEBUG) || defined(DCHECK_ALWAYS_ON)) &&
+        //     GTEST_HAS_DEATH_TEST
 
 }  // namespace
 }  // namespace base

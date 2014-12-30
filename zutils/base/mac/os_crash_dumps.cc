@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include "base/basictypes.h"
+#include "base/logging.h"
 
 namespace base {
 namespace mac {
@@ -29,16 +30,30 @@ void DisableOSCrashDumps() {
   // bsd/uxkern/ux_exception.c and machine_exception() in xnu's
   // bsd/dev/*/unix_signal.c.
   const int signals_to_intercept[] = {
+    // Hardware faults
     SIGILL,   // EXC_BAD_INSTRUCTION
     SIGTRAP,  // EXC_BREAKPOINT
     SIGFPE,   // EXC_ARITHMETIC
     SIGBUS,   // EXC_BAD_ACCESS
-    SIGSEGV   // EXC_BAD_ACCESS
+    SIGSEGV,  // EXC_BAD_ACCESS
+    // Not a hardware fault
+    SIGABRT
   };
 
   // For all these signals, just wire things up so we exit immediately.
-  for (size_t i = 0; i < arraysize(signals_to_intercept); ++i)
-    signal(signals_to_intercept[i], ExitSignalHandler);
+  for (size_t i = 0; i < arraysize(signals_to_intercept); ++i) {
+    struct sigaction act = {};
+    act.sa_handler = ExitSignalHandler;
+
+    // It is better to allow the signal handler to run on the stack
+    // registered with sigaltstack(), if one is present.
+    act.sa_flags = SA_ONSTACK;
+
+    if (sigemptyset(&act.sa_mask) != 0)
+      DPLOG(FATAL) << "sigemptyset() failed";
+    if (sigaction(signals_to_intercept[i], &act, NULL) != 0)
+      DPLOG(FATAL) << "sigaction() failed";
+  }
 }
 
 }  // namespace mac

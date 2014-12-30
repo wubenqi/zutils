@@ -7,13 +7,13 @@
 #include "base/float_util.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
-#include "base/string_number_conversions.h"
-#include "base/string_piece.h"
-#include "base/string_util.h"
-#include "base/stringprintf.h"
+#include "base/strings/string_number_conversions.h"
+#include "base/strings/string_piece.h"
+#include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversion_utils.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/third_party/icu/icu_utf.h"
-#include "base/utf_string_conversion_utils.h"
-#include "base/utf_string_conversions.h"
 #include "base/values.h"
 
 namespace base {
@@ -28,14 +28,13 @@ const int32 kExtendedASCIIStart = 0x80;
 // This and the class below are used to own the JSON input string for when
 // string tokens are stored as StringPiece instead of std::string. This
 // optimization avoids about 2/3rds of string memory copies. The constructor
-// takes the input string and swaps its data into the new instance. The real
-// root value is also Swap()ed into the new instance.
+// takes ownership of the input string. The real root value is Swap()ed into
+// the new instance.
 class DictionaryHiddenRootValue : public base::DictionaryValue {
  public:
-  DictionaryHiddenRootValue(std::string* json, Value* root) {
+  DictionaryHiddenRootValue(std::string* json, Value* root) : json_(json) {
     DCHECK(root->IsType(Value::TYPE_DICTIONARY));
     DictionaryValue::Swap(static_cast<DictionaryValue*>(root));
-    json->swap(json_);
   }
 
   virtual void Swap(DictionaryValue* other) OVERRIDE {
@@ -49,7 +48,7 @@ class DictionaryHiddenRootValue : public base::DictionaryValue {
     // Then erase the contents of the current dictionary and swap in the
     // new contents, originally from |other|.
     Clear();
-    json_.clear();
+    json_.reset();
     DictionaryValue::Swap(copy.get());
   }
 
@@ -57,7 +56,7 @@ class DictionaryHiddenRootValue : public base::DictionaryValue {
   // the method below.
 
   virtual bool RemoveWithoutPathExpansion(const std::string& key,
-                                          Value** out) OVERRIDE {
+                                          scoped_ptr<Value>* out) OVERRIDE {
     // If the caller won't take ownership of the removed value, just call up.
     if (!out)
       return DictionaryValue::RemoveWithoutPathExpansion(key, out);
@@ -66,28 +65,26 @@ class DictionaryHiddenRootValue : public base::DictionaryValue {
 
     // Otherwise, remove the value while its still "owned" by this and copy it
     // to convert any JSONStringValues to std::string.
-    Value* out_owned = NULL;
+    scoped_ptr<Value> out_owned;
     if (!DictionaryValue::RemoveWithoutPathExpansion(key, &out_owned))
       return false;
 
-    *out = out_owned->DeepCopy();
-    delete out_owned;
+    out->reset(out_owned->DeepCopy());
 
     return true;
   }
 
  private:
-  std::string json_;
+  scoped_ptr<std::string> json_;
 
   DISALLOW_COPY_AND_ASSIGN(DictionaryHiddenRootValue);
 };
 
 class ListHiddenRootValue : public base::ListValue {
  public:
-  ListHiddenRootValue(std::string* json, Value* root) {
+  ListHiddenRootValue(std::string* json, Value* root) : json_(json) {
     DCHECK(root->IsType(Value::TYPE_LIST));
     ListValue::Swap(static_cast<ListValue*>(root));
-    json->swap(json_);
   }
 
   virtual void Swap(ListValue* other) OVERRIDE {
@@ -101,11 +98,11 @@ class ListHiddenRootValue : public base::ListValue {
     // Then erase the contents of the current list and swap in the new contents,
     // originally from |other|.
     Clear();
-    json_.clear();
+    json_.reset();
     ListValue::Swap(copy.get());
   }
 
-  virtual bool Remove(size_t index, Value** out) OVERRIDE {
+  virtual bool Remove(size_t index, scoped_ptr<Value>* out) OVERRIDE {
     // If the caller won't take ownership of the removed value, just call up.
     if (!out)
       return ListValue::Remove(index, out);
@@ -114,18 +111,17 @@ class ListHiddenRootValue : public base::ListValue {
 
     // Otherwise, remove the value while its still "owned" by this and copy it
     // to convert any JSONStringValues to std::string.
-    Value* out_owned = NULL;
+    scoped_ptr<Value> out_owned;
     if (!ListValue::Remove(index, &out_owned))
       return false;
 
-    *out = out_owned->DeepCopy();
-    delete out_owned;
+    out->reset(out_owned->DeepCopy());
 
     return true;
   }
 
  private:
-  std::string json_;
+  scoped_ptr<std::string> json_;
 
   DISALLOW_COPY_AND_ASSIGN(ListHiddenRootValue);
 };
@@ -150,7 +146,7 @@ class JSONStringValue : public base::Value {
     return true;
   }
   virtual Value* DeepCopy() const OVERRIDE {
-    return Value::CreateStringValue(string_piece_.as_string());
+    return new StringValue(string_piece_.as_string());
   }
   virtual bool Equals(const Value* other) const OVERRIDE {
     std::string other_string;
@@ -206,22 +202,13 @@ JSONParser::~JSONParser() {
 }
 
 Value* JSONParser::Parse(const StringPiece& input) {
-  // TODO(rsesek): Windows has problems with StringPiece/hidden roots. Fix
-  // <http://crbug.com/126107> when my Windows box arrives.
-  // For Android, swapping string doesn't mean swapping internal pointers
-  // but swapping contents. Since it can't provide the performance gain,
-  // set the below flag to disable the optimization and make it work.
-#if defined(OS_WIN) || defined(OS_ANDROID)
-  options_ |= JSON_DETACHABLE_CHILDREN;
-#endif
-
-  std::string input_copy;
+  scoped_ptr<std::string> input_copy;
   // If the children of a JSON root can be detached, then hidden roots cannot
   // be used, so do not bother copying the input because StringPiece will not
   // be used anywhere.
   if (!(options_ & JSON_DETACHABLE_CHILDREN)) {
-    input_copy = input.as_string();
-    start_pos_ = input_copy.data();
+    input_copy.reset(new std::string(input.as_string()));
+    start_pos_ = input_copy->data();
   } else {
     start_pos_ = input.data();
   }
@@ -262,9 +249,9 @@ Value* JSONParser::Parse(const StringPiece& input) {
   // hidden root.
   if (!(options_ & JSON_DETACHABLE_CHILDREN)) {
     if (root->IsType(Value::TYPE_DICTIONARY)) {
-      return new DictionaryHiddenRootValue(&input_copy, root.get());
+      return new DictionaryHiddenRootValue(input_copy.release(), root.get());
     } else if (root->IsType(Value::TYPE_LIST)) {
-      return new ListHiddenRootValue(&input_copy, root.get());
+      return new ListHiddenRootValue(input_copy.release(), root.get());
     } else if (root->IsType(Value::TYPE_STRING)) {
       // A string type could be a JSONStringValue, but because there's no
       // corresponding HiddenRootValue, the memory will be lost. Deep copy to
@@ -415,7 +402,9 @@ void JSONParser::EatWhitespaceAndComments() {
       case '\r':
       case '\n':
         index_last_line_ = index_;
-        ++line_number_;
+        // Don't increment line_number_ twice for "\r\n".
+        if (!(*pos_ == '\n' && pos_ > start_pos_ && *(pos_ - 1) == '\r'))
+          ++line_number_;
         // Fall through.
       case ' ':
       case '\t':
@@ -444,15 +433,18 @@ bool JSONParser::EatComment() {
         return true;
     }
   } else if (next_char == '*') {
+    char previous_char = '\0';
     // Block comment, read until end marker.
-    while (CanConsume(2)) {
-      if (*NextChar() == '*' && *NextChar() == '/') {
+    while (CanConsume(1)) {
+      next_char = *NextChar();
+      if (previous_char == '*' && next_char == '/') {
         // EatWhitespaceAndComments will inspect pos_, which will still be on
         // the last / of the comment, so advance once more (which may also be
         // end of input).
         NextChar();
         return true;
       }
+      previous_char = next_char;
     }
 
     // If the comment is unterminated, GetNextToken will report T_END_OF_INPUT.
@@ -876,12 +868,12 @@ Value* JSONParser::ConsumeNumber() {
 
   int num_int;
   if (StringToInt(num_string, &num_int))
-    return Value::CreateIntegerValue(num_int);
+    return new FundamentalValue(num_int);
 
   double num_double;
   if (base::StringToDouble(num_string.as_string(), &num_double) &&
       IsFinite(num_double)) {
-    return Value::CreateDoubleValue(num_double);
+    return new FundamentalValue(num_double);
   }
 
   return NULL;
@@ -917,7 +909,7 @@ Value* JSONParser::ConsumeLiteral() {
         return NULL;
       }
       NextNChars(kTrueLen - 1);
-      return Value::CreateBooleanValue(true);
+      return new FundamentalValue(true);
     }
     case 'f': {
       const char* kFalseLiteral = "false";
@@ -928,7 +920,7 @@ Value* JSONParser::ConsumeLiteral() {
         return NULL;
       }
       NextNChars(kFalseLen - 1);
-      return Value::CreateBooleanValue(false);
+      return new FundamentalValue(false);
     }
     case 'n': {
       const char* kNullLiteral = "null";

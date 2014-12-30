@@ -7,10 +7,28 @@
 #include <string>
 
 #include "base/command_line.h"
-#include "base/process_util.h"
+#include "base/process/kill.h"
 #include "base/test/multiprocess_test.h"
 #include "base/win/scoped_process_information.h"
 #include "testing/multiprocess_func_list.h"
+
+namespace {
+
+const DWORD kProcessId = 4321;
+const DWORD kThreadId = 1234;
+const HANDLE kProcessHandle = reinterpret_cast<HANDLE>(7651);
+const HANDLE kThreadHandle = reinterpret_cast<HANDLE>(1567);
+
+void MockCreateProcess(base::win::ScopedProcessInformation* process_info) {
+  PROCESS_INFORMATION process_information = {};
+  process_information.dwProcessId = kProcessId;
+  process_information.dwThreadId = kThreadId;
+  process_information.hProcess = kProcessHandle;
+  process_information.hThread = kThreadHandle;
+  process_info->Set(process_information);
+}
+
+}  // namespace
 
 class ScopedProcessInformationTest : public base::MultiProcessTest {
  protected:
@@ -28,92 +46,84 @@ MULTIPROCESS_TEST_MAIN(ReturnNine) {
 
 void ScopedProcessInformationTest::DoCreateProcess(
     const std::string& main_id, PROCESS_INFORMATION* process_handle) {
-  std::wstring cmd_line =
-      this->MakeCmdLine(main_id, false).GetCommandLineString();
+  std::wstring cmd_line = MakeCmdLine(main_id).GetCommandLineString();
   STARTUPINFO startup_info = {};
   startup_info.cb = sizeof(startup_info);
 
-  EXPECT_TRUE(::CreateProcess(NULL,
-                              const_cast<wchar_t*>(cmd_line.c_str()),
+  EXPECT_TRUE(::CreateProcess(NULL, &cmd_line[0],
                               NULL, NULL, false, 0, NULL, NULL,
                               &startup_info, process_handle));
 }
 
+TEST_F(ScopedProcessInformationTest, InitiallyInvalid) {
+  base::win::ScopedProcessInformation process_info;
+  ASSERT_FALSE(process_info.IsValid());
+}
+
+TEST_F(ScopedProcessInformationTest, Receive) {
+  base::win::ScopedProcessInformation process_info;
+  MockCreateProcess(&process_info);
+
+  EXPECT_TRUE(process_info.IsValid());
+  EXPECT_EQ(kProcessId, process_info.process_id());
+  EXPECT_EQ(kThreadId, process_info.thread_id());
+  EXPECT_EQ(kProcessHandle, process_info.process_handle());
+  EXPECT_EQ(kThreadHandle, process_info.thread_handle());
+  PROCESS_INFORMATION to_discard = process_info.Take();
+}
+
 TEST_F(ScopedProcessInformationTest, TakeProcess) {
   base::win::ScopedProcessInformation process_info;
-  DoCreateProcess("ReturnSeven", process_info.Receive());
-  int exit_code = 0;
-  ASSERT_TRUE(base::WaitForExitCode(process_info.TakeProcessHandle(),
-                                    &exit_code));
-  ASSERT_EQ(7, exit_code);
-  ASSERT_TRUE(process_info.IsValid());
-  ASSERT_EQ(0u, process_info.process_id());
-  ASSERT_TRUE(process_info.process_handle() == NULL);
-  ASSERT_NE(0u, process_info.thread_id());
-  ASSERT_FALSE(process_info.thread_handle() == NULL);
+  MockCreateProcess(&process_info);
+
+  HANDLE process = process_info.TakeProcessHandle();
+  EXPECT_EQ(kProcessHandle, process);
+  EXPECT_EQ(NULL, process_info.process_handle());
+  EXPECT_EQ(0, process_info.process_id());
+  EXPECT_TRUE(process_info.IsValid());
+  PROCESS_INFORMATION to_discard = process_info.Take();
 }
 
 TEST_F(ScopedProcessInformationTest, TakeThread) {
   base::win::ScopedProcessInformation process_info;
-  DoCreateProcess("ReturnSeven", process_info.Receive());
-  ASSERT_TRUE(::CloseHandle(process_info.TakeThreadHandle()));
-  ASSERT_TRUE(process_info.IsValid());
-  ASSERT_NE(0u, process_info.process_id());
-  ASSERT_FALSE(process_info.process_handle() == NULL);
-  ASSERT_EQ(0u, process_info.thread_id());
-  ASSERT_TRUE(process_info.thread_handle() == NULL);
+  MockCreateProcess(&process_info);
+
+  HANDLE thread = process_info.TakeThreadHandle();
+  EXPECT_EQ(kThreadHandle, thread);
+  EXPECT_EQ(NULL, process_info.thread_handle());
+  EXPECT_EQ(0, process_info.thread_id());
+  EXPECT_TRUE(process_info.IsValid());
+  PROCESS_INFORMATION to_discard = process_info.Take();
 }
 
 TEST_F(ScopedProcessInformationTest, TakeBoth) {
   base::win::ScopedProcessInformation process_info;
-  DoCreateProcess("ReturnSeven", process_info.Receive());
-  int exit_code = 0;
-  ASSERT_TRUE(base::WaitForExitCode(process_info.TakeProcessHandle(),
-                                    &exit_code));
-  ASSERT_EQ(7, exit_code);
-  ASSERT_TRUE(::CloseHandle(process_info.TakeThreadHandle()));
-  ASSERT_FALSE(process_info.IsValid());
-  ASSERT_EQ(0u, process_info.process_id());
-  ASSERT_TRUE(process_info.process_handle() == NULL);
-  ASSERT_EQ(0u, process_info.thread_id());
-  ASSERT_TRUE(process_info.thread_handle() == NULL);
-}
+  MockCreateProcess(&process_info);
 
-TEST_F(ScopedProcessInformationTest, TakeNothing) {
-  base::win::ScopedProcessInformation process_info;
-  DoCreateProcess("ReturnSeven", process_info.Receive());
-  ASSERT_TRUE(process_info.IsValid());
-  ASSERT_NE(0u, process_info.thread_id());
-  ASSERT_FALSE(process_info.thread_handle() == NULL);
-  ASSERT_NE(0u, process_info.process_id());
-  ASSERT_FALSE(process_info.process_handle() == NULL);
+  HANDLE process = process_info.TakeProcessHandle();
+  HANDLE thread = process_info.TakeThreadHandle();
+  EXPECT_FALSE(process_info.IsValid());
+  PROCESS_INFORMATION to_discard = process_info.Take();
 }
 
 TEST_F(ScopedProcessInformationTest, TakeWholeStruct) {
   base::win::ScopedProcessInformation process_info;
-  DoCreateProcess("ReturnSeven", process_info.Receive());
-  base::win::ScopedProcessInformation other;
-  *other.Receive() = process_info.Take();
+  MockCreateProcess(&process_info);
 
-  ASSERT_FALSE(process_info.IsValid());
-  ASSERT_EQ(0u, process_info.process_id());
-  ASSERT_TRUE(process_info.process_handle() == NULL);
-  ASSERT_EQ(0u, process_info.thread_id());
-  ASSERT_TRUE(process_info.thread_handle() == NULL);
-
-  // Validate that what was taken is good.
-  ASSERT_NE(0u, other.thread_id());
-  ASSERT_NE(0u, other.process_id());
-  int exit_code = 0;
-  ASSERT_TRUE(base::WaitForExitCode(other.TakeProcessHandle(),
-                                    &exit_code));
-  ASSERT_EQ(7, exit_code);
-  ASSERT_TRUE(::CloseHandle(other.TakeThreadHandle()));
+  PROCESS_INFORMATION to_discard = process_info.Take();
+  EXPECT_EQ(kProcessId, to_discard.dwProcessId);
+  EXPECT_EQ(kThreadId, to_discard.dwThreadId);
+  EXPECT_EQ(kProcessHandle, to_discard.hProcess);
+  EXPECT_EQ(kThreadHandle, to_discard.hThread);
+  EXPECT_FALSE(process_info.IsValid());
 }
 
 TEST_F(ScopedProcessInformationTest, Duplicate) {
+  PROCESS_INFORMATION temp_process_information;
+  DoCreateProcess("ReturnSeven", &temp_process_information);
   base::win::ScopedProcessInformation process_info;
-  DoCreateProcess("ReturnSeven", process_info.Receive());
+  process_info.Set(temp_process_information);
+
   base::win::ScopedProcessInformation duplicate;
   duplicate.DuplicateFrom(process_info);
 
@@ -138,44 +148,18 @@ TEST_F(ScopedProcessInformationTest, Duplicate) {
   ASSERT_TRUE(::CloseHandle(duplicate.TakeThreadHandle()));
 }
 
-TEST_F(ScopedProcessInformationTest, Swap) {
-  base::win::ScopedProcessInformation seven_to_nine_info;
-  DoCreateProcess("ReturnSeven", seven_to_nine_info.Receive());
-  base::win::ScopedProcessInformation nine_to_seven_info;
-  DoCreateProcess("ReturnNine", nine_to_seven_info.Receive());
+TEST_F(ScopedProcessInformationTest, Set) {
+  base::win::ScopedProcessInformation base_process_info;
+  MockCreateProcess(&base_process_info);
 
-  HANDLE seven_process = seven_to_nine_info.process_handle();
-  DWORD seven_process_id = seven_to_nine_info.process_id();
-  HANDLE seven_thread = seven_to_nine_info.thread_handle();
-  DWORD seven_thread_id = seven_to_nine_info.thread_id();
-  HANDLE nine_process = nine_to_seven_info.process_handle();
-  DWORD nine_process_id = nine_to_seven_info.process_id();
-  HANDLE nine_thread = nine_to_seven_info.thread_handle();
-  DWORD nine_thread_id = nine_to_seven_info.thread_id();
+  PROCESS_INFORMATION base_struct = base_process_info.Take();
 
-  seven_to_nine_info.Swap(&nine_to_seven_info);
-
-  ASSERT_EQ(seven_process, nine_to_seven_info.process_handle());
-  ASSERT_EQ(seven_process_id, nine_to_seven_info.process_id());
-  ASSERT_EQ(seven_thread, nine_to_seven_info.thread_handle());
-  ASSERT_EQ(seven_thread_id, nine_to_seven_info.thread_id());
-  ASSERT_EQ(nine_process, seven_to_nine_info.process_handle());
-  ASSERT_EQ(nine_process_id, seven_to_nine_info.process_id());
-  ASSERT_EQ(nine_thread, seven_to_nine_info.thread_handle());
-  ASSERT_EQ(nine_thread_id, seven_to_nine_info.thread_id());
-
-  int exit_code = 0;
-  ASSERT_TRUE(base::WaitForExitCode(seven_to_nine_info.TakeProcessHandle(),
-                                    &exit_code));
-  ASSERT_EQ(9, exit_code);
-
-  ASSERT_TRUE(base::WaitForExitCode(nine_to_seven_info.TakeProcessHandle(),
-                                    &exit_code));
-  ASSERT_EQ(7, exit_code);
-
-}
-
-TEST_F(ScopedProcessInformationTest, InitiallyInvalid) {
   base::win::ScopedProcessInformation process_info;
-  ASSERT_FALSE(process_info.IsValid());
+  process_info.Set(base_struct);
+
+  EXPECT_EQ(kProcessId, process_info.process_id());
+  EXPECT_EQ(kThreadId, process_info.thread_id());
+  EXPECT_EQ(kProcessHandle, process_info.process_handle());
+  EXPECT_EQ(kThreadHandle, process_info.thread_handle());
+  base_struct = process_info.Take();
 }

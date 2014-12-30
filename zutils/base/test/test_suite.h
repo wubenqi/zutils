@@ -20,43 +20,32 @@ class TestInfo;
 
 namespace base {
 
+// Instantiates TestSuite, runs it and returns exit code.
+int RunUnitTestsUsingBaseTestSuite(int argc, char **argv);
+
 class TestSuite {
  public:
   // Match function used by the GetTestCount method.
   typedef bool (*TestMatch)(const testing::TestInfo&);
 
   TestSuite(int argc, char** argv);
+#if defined(OS_WIN)
+  TestSuite(int argc, wchar_t** argv);
+#endif  // defined(OS_WIN)
   virtual ~TestSuite();
-
-  // Returns true if the test is marked as flaky.
-  static bool IsMarkedFlaky(const testing::TestInfo& test);
-
-  // Returns true if the test is marked as failing.
-  static bool IsMarkedFailing(const testing::TestInfo& test);
 
   // Returns true if the test is marked as "MAYBE_".
   // When using different prefixes depending on platform, we use MAYBE_ and
   // preprocessor directives to replace MAYBE_ with the target prefix.
   static bool IsMarkedMaybe(const testing::TestInfo& test);
 
-  // Returns true if the test failure should be ignored.
-  static bool ShouldIgnoreFailure(const testing::TestInfo& test);
-
-  // Returns true if the test failed and the failure shouldn't be ignored.
-  static bool NonIgnoredFailures(const testing::TestInfo& test);
-
-  // Returns the number of tests where the match function returns true.
-  int GetTestCount(TestMatch test_match);
-
   void CatchMaybeTests();
 
   void ResetCommandLine();
 
-  int Run();
+  void AddTestLauncherResultPrinter();
 
-  // A command-line flag that makes a test failure always result in a non-zero
-  // process exit code.
-  static const char kStrictFailureHandling[];
+  int Run();
 
  protected:
   // This constructor is only accessible to specialized test suite
@@ -83,8 +72,13 @@ class TestSuite {
   scoped_ptr<base::AtExitManager> at_exit_manager_;
 
  private:
+  void InitializeFromCommandLine(int argc, char** argv);
+#if defined(OS_WIN)
+  void InitializeFromCommandLine(int argc, wchar_t** argv);
+#endif  // defined(OS_WIN)
+
   // Basic initialization for the test suite happens here.
-  void PreInitialize(int argc, char** argv, bool create_at_exit_manager);
+  void PreInitialize(bool create_at_exit_manager);
 
   bool initialized_command_line_;
 

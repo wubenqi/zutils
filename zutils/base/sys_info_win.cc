@@ -6,12 +6,30 @@
 
 #include <windows.h>
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/win/windows_version.h"
+
+namespace {
+
+int64 AmountOfMemory(DWORDLONG MEMORYSTATUSEX::* memory_field) {
+  MEMORYSTATUSEX memory_info;
+  memory_info.dwLength = sizeof(memory_info);
+  if (!GlobalMemoryStatusEx(&memory_info)) {
+    NOTREACHED();
+    return 0;
+  }
+
+  int64 rv = static_cast<int64>(memory_info.*memory_field);
+  if (rv < 0)
+    rv = kint64max;
+  return rv;
+}
+
+}  // namespace
 
 namespace base {
 
@@ -22,17 +40,17 @@ int SysInfo::NumberOfProcessors() {
 
 // static
 int64 SysInfo::AmountOfPhysicalMemory() {
-  MEMORYSTATUSEX memory_info;
-  memory_info.dwLength = sizeof(memory_info);
-  if (!GlobalMemoryStatusEx(&memory_info)) {
-    NOTREACHED();
-    return 0;
-  }
+  return AmountOfMemory(&MEMORYSTATUSEX::ullTotalPhys);
+}
 
-  int64 rv = static_cast<int64>(memory_info.ullTotalPhys);
-  if (rv < 0)
-    rv = kint64max;
-  return rv;
+// static
+int64 SysInfo::AmountOfAvailablePhysicalMemory() {
+  return AmountOfMemory(&MEMORYSTATUSEX::ullAvailPhys);
+}
+
+// static
+int64 SysInfo::AmountOfVirtualMemory() {
+  return 0;
 }
 
 // static
@@ -74,7 +92,7 @@ std::string SysInfo::OperatingSystemVersion() {
 // See chrome/browser/feedback/feedback_util.h, FeedbackUtil::SetOSVersion.
 
 // static
-std::string SysInfo::CPUArchitecture() {
+std::string SysInfo::OperatingSystemArchitecture() {
   win::OSInfo::WindowsArchitecture arch =
       win::OSInfo::GetInstance()->architecture();
   switch (arch) {

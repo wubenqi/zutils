@@ -8,9 +8,9 @@
 
 #include "base/at_exit.h"
 #include "base/basictypes.h"
-#include "base/file_util.h"
 #include "base/debug/trace_event.h"
 #include "base/debug/trace_event_win.h"
+#include "base/files/file_util.h"
 #include "base/win/event_trace_consumer.h"
 #include "base/win/event_trace_controller.h"
 #include "base/win/event_trace_provider.h"
@@ -115,7 +115,7 @@ class TraceEventWinTest: public testing::Test {
     }
 
     // Create the log file.
-    ASSERT_TRUE(file_util::CreateTemporaryFile(&log_file_));
+    ASSERT_TRUE(base::CreateTemporaryFile(&log_file_));
 
     // Create a private log session on the file.
     EtwTraceProperties prop;
@@ -157,7 +157,10 @@ class TraceEventWinTest: public testing::Test {
       EXPECT_HRESULT_SUCCEEDED(controller_.Stop(&prop));
 
     if (!log_file_.value().empty())
-      file_util::Delete(log_file_, false);
+      base::DeleteFile(log_file_, false);
+
+    // We want our singleton torn down after each test.
+    TraceLog::DeleteForTesting();
   }
 
   void ExpectEvent(REFGUID guid,
@@ -267,11 +270,11 @@ TEST_F(TraceEventWinTest, TraceLog) {
               kEmpty, 0);
 
   TraceEventETWProvider::Trace(NULL,
-                        -1,
+                        TraceEventETWProvider::kUseStrlen,
                         TRACE_EVENT_PHASE_END,
                         kId,
                         NULL,
-                        -1);
+                        TraceEventETWProvider::kUseStrlen);
 
   ExpectEvent(kTraceEventClass32,
               kTraceEventTypeEnd,

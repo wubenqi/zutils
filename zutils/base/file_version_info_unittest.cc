@@ -2,33 +2,33 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/file_util.h"
+#include "base/file_version_info.h"
+#include "base/files/file_path.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/path_service.h"
-#include "base/file_version_info.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 #if defined(OS_WIN)
 #include "base/file_version_info_win.h"
 #endif
 
-namespace {
+using base::FilePath;
 
-class FileVersionInfoTest : public testing::Test {
-};
+namespace {
 
 #if defined(OS_WIN)
 FilePath GetTestDataPath() {
   FilePath path;
   PathService::Get(base::DIR_SOURCE_ROOT, &path);
   path = path.AppendASCII("base");
+  path = path.AppendASCII("test");
   path = path.AppendASCII("data");
   path = path.AppendASCII("file_version_info_unittest");
   return path;
 }
 #endif
 
-}
+}  // namespace
 
 #if defined(OS_WIN)
 TEST(FileVersionInfoTest, HardCodedProperties) {

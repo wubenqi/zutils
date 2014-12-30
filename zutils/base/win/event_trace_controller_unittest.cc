@@ -7,23 +7,22 @@
 #include <objbase.h>
 #include <initguid.h>
 
-#include "base/file_path.h"
-#include "base/file_util.h"
+#include "base/files/file_path.h"
+#include "base/files/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/logging.h"
-#include "base/process.h"
-#include "base/scoped_temp_dir.h"
-#include "base/stringprintf.h"
+#include "base/process/process.h"
+#include "base/strings/stringprintf.h"
 #include "base/sys_info.h"
 #include "base/win/event_trace_controller.h"
 #include "base/win/event_trace_provider.h"
 #include "base/win/scoped_handle.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-namespace {
+namespace base {
+namespace win {
 
-using base::win::EtwTraceController;
-using base::win::EtwTraceProvider;
-using base::win::EtwTraceProperties;
+namespace {
 
 DEFINE_GUID(kGuidNull,
     0x0000000, 0x0000, 0x0000, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0);
@@ -50,7 +49,7 @@ class TestingProvider: public EtwTraceProvider {
     ::SetEvent(callback_event_.Get());
   }
 
-  base::win::ScopedHandle callback_event_;
+  ScopedHandle callback_event_;
 
   DISALLOW_COPY_AND_ASSIGN(TestingProvider);
 };
@@ -110,8 +109,9 @@ namespace {
 
 class EtwTraceControllerTest : public testing::Test {
  public:
-  EtwTraceControllerTest() : session_name_(
-      base::StringPrintf(L"TestSession-%d", base::Process::Current().pid())) {
+  EtwTraceControllerTest()
+      : session_name_(
+            StringPrintf(L"TestSession-%d", Process::Current().pid())) {
   }
 
   virtual void SetUp() {
@@ -164,14 +164,14 @@ TEST_F(EtwTraceControllerTest, StartFileSession) {
   ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
   FilePath temp;
-  ASSERT_TRUE(file_util::CreateTemporaryFileInDir(temp_dir.path(), &temp));
+  ASSERT_TRUE(base::CreateTemporaryFileInDir(temp_dir.path(), &temp));
 
   EtwTraceController controller;
   HRESULT hr = controller.StartFileSession(session_name_.c_str(),
                                            temp.value().c_str());
   if (hr == E_ACCESSDENIED) {
     VLOG(1) << "You must be an administrator to run this test on Vista";
-    file_util::Delete(temp, false);
+    base::DeleteFile(temp, false);
     return;
   }
 
@@ -181,7 +181,7 @@ TEST_F(EtwTraceControllerTest, StartFileSession) {
   EXPECT_HRESULT_SUCCEEDED(controller.Stop(NULL));
   EXPECT_EQ(NULL, controller.session());
   EXPECT_STREQ(L"", controller.session_name());
-  file_util::Delete(temp, false);
+  base::DeleteFile(temp, false);
 }
 
 TEST_F(EtwTraceControllerTest, EnableDisable) {
@@ -234,3 +234,6 @@ TEST_F(EtwTraceControllerTest, EnableDisable) {
   EXPECT_EQ(0, provider.enable_level());
   EXPECT_EQ(0, provider.enable_flags());
 }
+
+}  // namespace win
+}  // namespace base

@@ -7,27 +7,32 @@
 #include "base/basictypes.h"
 #include "base/logging.h"
 #include "base/third_party/dynamic_annotations/dynamic_annotations.h"
-#include "base/time.h"
+#include "base/time/time.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace logging {
 
 namespace {
 
-class VlogTest : public testing::Test {
-};
-
-TEST_F(VlogTest, NoVmodule) {
+TEST(VlogTest, NoVmodule) {
   int min_log_level = 0;
-  EXPECT_EQ(0, VlogInfo("", "", &min_log_level).GetVlogLevel("test1"));
-  EXPECT_EQ(0, VlogInfo("0", "", &min_log_level).GetVlogLevel("test2"));
-  EXPECT_EQ(0, VlogInfo("blah", "", &min_log_level).GetVlogLevel("test3"));
-  EXPECT_EQ(0, VlogInfo("0blah1", "", &min_log_level).GetVlogLevel("test4"));
-  EXPECT_EQ(1, VlogInfo("1", "", &min_log_level).GetVlogLevel("test5"));
-  EXPECT_EQ(5, VlogInfo("5", "", &min_log_level).GetVlogLevel("test6"));
+  EXPECT_EQ(0,
+            VlogInfo(std::string(), std::string(), &min_log_level)
+                .GetVlogLevel("test1"));
+  EXPECT_EQ(0,
+            VlogInfo("0", std::string(), &min_log_level).GetVlogLevel("test2"));
+  EXPECT_EQ(
+      0, VlogInfo("blah", std::string(), &min_log_level).GetVlogLevel("test3"));
+  EXPECT_EQ(
+      0,
+      VlogInfo("0blah1", std::string(), &min_log_level).GetVlogLevel("test4"));
+  EXPECT_EQ(1,
+            VlogInfo("1", std::string(), &min_log_level).GetVlogLevel("test5"));
+  EXPECT_EQ(5,
+            VlogInfo("5", std::string(), &min_log_level).GetVlogLevel("test6"));
 }
 
-TEST_F(VlogTest, MatchVlogPattern) {
+TEST(VlogTest, MatchVlogPattern) {
   // Degenerate cases.
   EXPECT_TRUE(MatchVlogPattern("", ""));
   EXPECT_TRUE(MatchVlogPattern("", "****"));
@@ -75,7 +80,7 @@ TEST_F(VlogTest, MatchVlogPattern) {
   EXPECT_TRUE(MatchVlogPattern("\\b/lah", "/b\\lah"));
 }
 
-TEST_F(VlogTest, VmoduleBasic) {
+TEST(VlogTest, VmoduleBasic) {
   const char kVSwitch[] = "-1";
   const char kVModuleSwitch[] =
       "foo=,bar=0,baz=blah,,qux=0blah1,quux=1,corge.ext=5";
@@ -91,11 +96,11 @@ TEST_F(VlogTest, VmoduleBasic) {
   EXPECT_EQ(5, vlog_info.GetVlogLevel("c:\\path/to/corge.ext.h"));
 }
 
-TEST_F(VlogTest, VmoduleDirs) {
+TEST(VlogTest, VmoduleDirs) {
   const char kVModuleSwitch[] =
       "foo/bar.cc=1,baz\\*\\qux.cc=2,*quux/*=3,*/*-inl.h=4";
   int min_log_level = 0;
-  VlogInfo vlog_info("", kVModuleSwitch, &min_log_level);
+  VlogInfo vlog_info(std::string(), kVModuleSwitch, &min_log_level);
   EXPECT_EQ(0, vlog_info.GetVlogLevel("/foo/bar.cc"));
   EXPECT_EQ(0, vlog_info.GetVlogLevel("bar.cc"));
   EXPECT_EQ(1, vlog_info.GetVlogLevel("foo/bar.cc"));

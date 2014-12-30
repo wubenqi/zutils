@@ -5,14 +5,16 @@
 #ifndef BASE_DEBUG_LEAK_TRACKER_H_
 #define BASE_DEBUG_LEAK_TRACKER_H_
 
-// Only enable leak tracking in debug builds.
-#ifndef NDEBUG
+#include "build/build_config.h"
+
+// Only enable leak tracking in non-uClibc debug builds.
+#if !defined(NDEBUG) && !defined(__UCLIBC__)
 #define ENABLE_LEAK_TRACKER
 #endif
 
 #ifdef ENABLE_LEAK_TRACKER
+#include "base/containers/linked_list.h"
 #include "base/debug/stack_trace.h"
-#include "base/linked_list.h"
 #include "base/logging.h"
 #endif  // ENABLE_LEAK_TRACKER
 
@@ -103,7 +105,7 @@ class LeakTracker : public LinkNode<LeakTracker<T> > {
     // doesn't optimize it out, and it will appear in mini-dumps).
     if (count == 0x1234) {
       for (size_t i = 0; i < kMaxStackTracesToCopyOntoStack; ++i)
-        stacktraces[i].PrintBacktrace();
+        stacktraces[i].Print();
     }
   }
 

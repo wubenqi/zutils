@@ -11,7 +11,7 @@
 #include "base/logging.h"
 #include "base/synchronization/lock.h"
 #include "base/threading/thread_restrictions.h"
-#include "base/time.h"
+#include "base/time/time.h"
 
 namespace {
 // We can't use the linker supported delay-load for kernel32 so all this
@@ -97,9 +97,9 @@ void WinVistaCondVar::Wait() {
 void WinVistaCondVar::TimedWait(const TimeDelta& max_time) {
   base::ThreadRestrictions::AssertWaitAllowed();
   DWORD timeout = static_cast<DWORD>(max_time.InMilliseconds());
-  CRITICAL_SECTION* cs = user_lock_.lock_.os_lock();
+  CRITICAL_SECTION* cs = user_lock_.lock_.native_handle();
 
-#if !defined(NDEBUG)
+#if !defined(NDEBUG) || defined(DCHECK_ALWAYS_ON)
   user_lock_.CheckHeldAndUnmark();
 #endif
 
@@ -107,7 +107,7 @@ void WinVistaCondVar::TimedWait(const TimeDelta& max_time) {
     DCHECK(GetLastError() != WAIT_TIMEOUT);
   }
 
-#if !defined(NDEBUG)
+#if !defined(NDEBUG) || defined(DCHECK_ALWAYS_ON)
   user_lock_.CheckUnheldAndMark();
 #endif
 }

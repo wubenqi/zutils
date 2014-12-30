@@ -10,19 +10,22 @@
 #include <string>
 
 #include "base/basictypes.h"
-#include "base/eintr_wrapper.h"
 #include "base/logging.h"
 #include "base/mac/bundle_locations.h"
 #include "base/mac/mac_logging.h"
 #import "base/mac/mac_util.h"
 #include "base/mac/scoped_authorizationref.h"
-#include "base/string_number_conversions.h"
-#include "base/string_util.h"
+#include "base/posix/eintr_wrapper.h"
+#include "base/strings/string_number_conversions.h"
+#include "base/strings/string_util.h"
 
 namespace base {
 namespace mac {
 
-AuthorizationRef AuthorizationCreateToRunAsRoot(CFStringRef prompt) {
+AuthorizationRef GetAuthorizationRightsWithPrompt(
+    AuthorizationRights* rights,
+    CFStringRef prompt,
+    AuthorizationFlags extraFlags) {
   // Create an empty AuthorizationRef.
   ScopedAuthorizationRef authorization;
   OSStatus status = AuthorizationCreate(NULL,
@@ -34,12 +37,11 @@ AuthorizationRef AuthorizationCreateToRunAsRoot(CFStringRef prompt) {
     return NULL;
   }
 
-  // Specify the "system.privilege.admin" right, which allows
-  // AuthorizationExecuteWithPrivileges to run commands as root.
-  AuthorizationItem right_items[] = {
-    {kAuthorizationRightExecute, 0, NULL, 0}
-  };
-  AuthorizationRights rights = {arraysize(right_items), right_items};
+  AuthorizationFlags flags = kAuthorizationFlagDefaults |
+                             kAuthorizationFlagInteractionAllowed |
+                             kAuthorizationFlagExtendRights |
+                             kAuthorizationFlagPreAuthorize |
+                             extraFlags;
 
   // product_logo_32.png is used instead of app.icns because Authorization
   // Services can't deal with .icns files.
@@ -63,16 +65,12 @@ AuthorizationRef AuthorizationCreateToRunAsRoot(CFStringRef prompt) {
   AuthorizationEnvironment environment = {arraysize(environment_items),
                                           environment_items};
 
-  AuthorizationFlags flags = kAuthorizationFlagDefaults |
-                             kAuthorizationFlagInteractionAllowed |
-                             kAuthorizationFlagExtendRights |
-                             kAuthorizationFlagPreAuthorize;
-
   status = AuthorizationCopyRights(authorization,
-                                   &rights,
+                                   rights,
                                    &environment,
                                    flags,
                                    NULL);
+
   if (status != errAuthorizationSuccess) {
     if (status != errAuthorizationCanceled) {
       OSSTATUS_LOG(ERROR, status) << "AuthorizationCopyRights";
@@ -81,6 +79,17 @@ AuthorizationRef AuthorizationCreateToRunAsRoot(CFStringRef prompt) {
   }
 
   return authorization.release();
+}
+
+AuthorizationRef AuthorizationCreateToRunAsRoot(CFStringRef prompt) {
+  // Specify the "system.privilege.admin" right, which allows
+  // AuthorizationExecuteWithPrivileges to run commands as root.
+  AuthorizationItem right_items[] = {
+    {kAuthorizationRightExecute, 0, NULL, 0}
+  };
+  AuthorizationRights rights = {arraysize(right_items), right_items};
+
+  return GetAuthorizationRightsWithPrompt(&rights, prompt, 0);
 }
 
 OSStatus ExecuteWithPrivilegesAndGetPID(AuthorizationRef authorization,

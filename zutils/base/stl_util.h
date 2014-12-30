@@ -7,8 +7,13 @@
 #ifndef BASE_STL_UTIL_H_
 #define BASE_STL_UTIL_H_
 
+#include <algorithm>
+#include <functional>
+#include <iterator>
 #include <string>
 #include <vector>
+
+#include "base/logging.h"
 
 // Clears internal memory of an STL object.
 // STL clear()/reserve(0) does not always free internal memory allocated
@@ -190,5 +195,66 @@ template <typename Collection, typename Key>
 bool ContainsKey(const Collection& collection, const Key& key) {
   return collection.find(key) != collection.end();
 }
+
+namespace base {
+
+// Returns true if the container is sorted.
+template <typename Container>
+bool STLIsSorted(const Container& cont) {
+  // Note: Use reverse iterator on container to ensure we only require
+  // value_type to implement operator<.
+  return std::adjacent_find(cont.rbegin(), cont.rend(),
+                            std::less<typename Container::value_type>())
+      == cont.rend();
+}
+
+// Returns a new ResultType containing the difference of two sorted containers.
+template <typename ResultType, typename Arg1, typename Arg2>
+ResultType STLSetDifference(const Arg1& a1, const Arg2& a2) {
+  DCHECK(STLIsSorted(a1));
+  DCHECK(STLIsSorted(a2));
+  ResultType difference;
+  std::set_difference(a1.begin(), a1.end(),
+                      a2.begin(), a2.end(),
+                      std::inserter(difference, difference.end()));
+  return difference;
+}
+
+// Returns a new ResultType containing the union of two sorted containers.
+template <typename ResultType, typename Arg1, typename Arg2>
+ResultType STLSetUnion(const Arg1& a1, const Arg2& a2) {
+  DCHECK(STLIsSorted(a1));
+  DCHECK(STLIsSorted(a2));
+  ResultType result;
+  std::set_union(a1.begin(), a1.end(),
+                 a2.begin(), a2.end(),
+                 std::inserter(result, result.end()));
+  return result;
+}
+
+// Returns a new ResultType containing the intersection of two sorted
+// containers.
+template <typename ResultType, typename Arg1, typename Arg2>
+ResultType STLSetIntersection(const Arg1& a1, const Arg2& a2) {
+  DCHECK(STLIsSorted(a1));
+  DCHECK(STLIsSorted(a2));
+  ResultType result;
+  std::set_intersection(a1.begin(), a1.end(),
+                        a2.begin(), a2.end(),
+                        std::inserter(result, result.end()));
+  return result;
+}
+
+// Returns true if the sorted container |a1| contains all elements of the sorted
+// container |a2|.
+template <typename Arg1, typename Arg2>
+bool STLIncludes(const Arg1& a1, const Arg2& a2) {
+  DCHECK(STLIsSorted(a1));
+  DCHECK(STLIsSorted(a2));
+  return std::includes(a1.begin(), a1.end(),
+                       a2.begin(), a2.end());
+}
+
+}  // namespace base
 
 #endif  // BASE_STL_UTIL_H_

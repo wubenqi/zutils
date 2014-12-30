@@ -5,19 +5,22 @@
 #ifndef BASE_WIN_SCOPED_COM_INITIALIZER_H_
 #define BASE_WIN_SCOPED_COM_INITIALIZER_H_
 
+#include <objbase.h>
+
 #include "base/basictypes.h"
 #include "base/logging.h"
 #include "build/build_config.h"
-
-#if defined(OS_WIN)
-
-#include <objbase.h>
 
 namespace base {
 namespace win {
 
 // Initializes COM in the constructor (STA or MTA), and uninitializes COM in the
 // destructor.
+//
+// WARNING: This should only be used once per thread, ideally scoped to a
+// similar lifetime as the thread itself.  You should not be using this in
+// random utility functions that make COM calls -- instead ensure these
+// functions are running on a COM-supporting thread!
 class ScopedCOMInitializer {
  public:
   // Enum value provided to initialize the thread as an MTA instead of STA.
@@ -38,7 +41,7 @@ class ScopedCOMInitializer {
     // Using the windows API directly to avoid dependency on platform_thread.
     DCHECK_EQ(GetCurrentThreadId(), thread_id_);
 #endif
-    if (SUCCEEDED(hr_))
+    if (succeeded())
       CoUninitialize();
   }
 
@@ -51,17 +54,10 @@ class ScopedCOMInitializer {
 #endif
     hr_ = CoInitializeEx(NULL, init);
 #ifndef NDEBUG
-    switch (hr_) {
-      case S_FALSE:
-        LOG(ERROR) << "Multiple CoInitialize() called for thread "
-                   << thread_id_;
-        break;
-      case RPC_E_CHANGED_MODE:
-        DCHECK(false) << "Invalid COM thread model change";
-        break;
-      default:
-        break;
-    }
+    if (hr_ == S_FALSE)
+      LOG(ERROR) << "Multiple CoInitialize() calls for thread " << thread_id_;
+    else
+      DCHECK_NE(RPC_E_CHANGED_MODE, hr_) << "Invalid COM thread model change";
 #endif
   }
 
@@ -79,29 +75,5 @@ class ScopedCOMInitializer {
 
 }  // namespace win
 }  // namespace base
-
-#else
-
-namespace base {
-namespace win {
-
-// Do-nothing class for other platforms.
-class ScopedCOMInitializer {
- public:
-  enum SelectMTA { kMTA };
-  ScopedCOMInitializer() {}
-  explicit ScopedCOMInitializer(SelectMTA mta) {}
-  ~ScopedCOMInitializer() {}
-
-  bool succeeded() const { return true; }
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(ScopedCOMInitializer);
-};
-
-}  // namespace win
-}  // namespace base
-
-#endif
 
 #endif  // BASE_WIN_SCOPED_COM_INITIALIZER_H_

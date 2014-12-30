@@ -7,18 +7,24 @@
 #include "base/at_exit.h"
 #include "base/base_paths.h"
 #include "base/base_switches.h"
+#include "base/bind.h"
 #include "base/command_line.h"
-#include "base/debug/debug_on_start_win.h"
 #include "base/debug/debugger.h"
-#include "base/file_path.h"
+#include "base/debug/stack_trace.h"
+#include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/i18n/icu_util.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/path_service.h"
-#include "base/process_util.h"
+#include "base/process/memory.h"
+#include "base/test/gtest_xml_util.h"
+#include "base/test/launcher/unit_test_launcher.h"
 #include "base/test/multiprocess_test.h"
+#include "base/test/test_switches.h"
 #include "base/test/test_timeouts.h"
-#include "base/time.h"
+#include "base/time/time.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/multiprocess_func_list.h"
 
@@ -37,10 +43,6 @@
 
 #if defined(OS_IOS)
 #include "base/test/test_support_ios.h"
-#endif
-
-#if defined(TOOLKIT_GTK)
-#include <gtk/gtk.h>
 #endif
 
 namespace {
@@ -77,15 +79,33 @@ class TestClientInitializer : public testing::EmptyTestEventListener {
 
 }  // namespace
 
-const char TestSuite::kStrictFailureHandling[] = "strict_failure_handling";
+namespace base {
+
+int RunUnitTestsUsingBaseTestSuite(int argc, char **argv) {
+  TestSuite test_suite(argc, argv);
+  return base::LaunchUnitTests(
+      argc, argv, Bind(&TestSuite::Run, Unretained(&test_suite)));
+}
+
+}  // namespace base
 
 TestSuite::TestSuite(int argc, char** argv) : initialized_command_line_(false) {
-  PreInitialize(argc, argv, true);
+  PreInitialize(true);
+  InitializeFromCommandLine(argc, argv);
 }
+
+#if defined(OS_WIN)
+TestSuite::TestSuite(int argc, wchar_t** argv)
+    : initialized_command_line_(false) {
+  PreInitialize(true);
+  InitializeFromCommandLine(argc, argv);
+}
+#endif  // defined(OS_WIN)
 
 TestSuite::TestSuite(int argc, char** argv, bool create_at_exit_manager)
     : initialized_command_line_(false) {
-  PreInitialize(argc, argv, create_at_exit_manager);
+  PreInitialize(create_at_exit_manager);
+  InitializeFromCommandLine(argc, argv);
 }
 
 TestSuite::~TestSuite() {
@@ -93,22 +113,37 @@ TestSuite::~TestSuite() {
     CommandLine::Reset();
 }
 
-void TestSuite::PreInitialize(int argc, char** argv,
-                              bool create_at_exit_manager) {
-#if defined(OS_WIN)
-  testing::GTEST_FLAG(catch_exceptions) = false;
-#endif
-  base::EnableTerminationOnHeapCorruption();
+void TestSuite::InitializeFromCommandLine(int argc, char** argv) {
   initialized_command_line_ = CommandLine::Init(argc, argv);
   testing::InitGoogleTest(&argc, argv);
+  testing::InitGoogleMock(&argc, argv);
+
+#if defined(OS_IOS)
+  InitIOSRunHook(this, argc, argv);
+#endif
+}
+
+#if defined(OS_WIN)
+void TestSuite::InitializeFromCommandLine(int argc, wchar_t** argv) {
+  // Windows CommandLine::Init ignores argv anyway.
+  initialized_command_line_ = CommandLine::Init(argc, NULL);
+  testing::InitGoogleTest(&argc, argv);
+  testing::InitGoogleMock(&argc, argv);
+}
+#endif  // defined(OS_WIN)
+
+void TestSuite::PreInitialize(bool create_at_exit_manager) {
+#if defined(OS_WIN)
+  testing::GTEST_FLAG(catch_exceptions) = false;
+  base::TimeTicks::SetNowIsHighResNowIfSupported();
+#endif
+  base::EnableTerminationOnHeapCorruption();
 #if defined(OS_LINUX) && defined(USE_AURA)
   // When calling native char conversion functions (e.g wrctomb) we need to
   // have the locale set. In the absence of such a call the "C" locale is the
   // default. In the gtk code (below) gtk_init() implicitly sets a locale.
   setlocale(LC_ALL, "");
-#elif defined(TOOLKIT_GTK)
-  gtk_init_check(&argc, &argv);
-#endif  // defined(TOOLKIT_GTK)
+#endif  // defined(OS_LINUX) && defined(USE_AURA)
 
   // On Android, AtExitManager is created in
   // testing/android/native_test_wrapper.cc before main() is called.
@@ -123,47 +158,8 @@ void TestSuite::PreInitialize(int argc, char** argv,
 
 
 // static
-bool TestSuite::IsMarkedFlaky(const testing::TestInfo& test) {
-  return strncmp(test.name(), "FLAKY_", 6) == 0;
-}
-
-// static
-bool TestSuite::IsMarkedFailing(const testing::TestInfo& test) {
-  return strncmp(test.name(), "FAILS_", 6) == 0;
-}
-
-// static
 bool TestSuite::IsMarkedMaybe(const testing::TestInfo& test) {
   return strncmp(test.name(), "MAYBE_", 6) == 0;
-}
-
-// static
-bool TestSuite::ShouldIgnoreFailure(const testing::TestInfo& test) {
-  if (CommandLine::ForCurrentProcess()->HasSwitch(kStrictFailureHandling))
-    return false;
-  return IsMarkedFlaky(test) || IsMarkedFailing(test);
-}
-
-// static
-bool TestSuite::NonIgnoredFailures(const testing::TestInfo& test) {
-  return test.should_run() && test.result()->Failed() &&
-      !ShouldIgnoreFailure(test);
-}
-
-int TestSuite::GetTestCount(TestMatch test_match) {
-  testing::UnitTest* instance = testing::UnitTest::GetInstance();
-  int count = 0;
-
-  for (int i = 0; i < instance->total_test_case_count(); ++i) {
-    const testing::TestCase& test_case = *instance->GetTestCase(i);
-    for (int j = 0; j < test_case.total_test_count(); ++j) {
-      if (test_match(*test_case.GetTestInfo(j))) {
-        count++;
-      }
-    }
-  }
-
-  return count;
 }
 
 void TestSuite::CatchMaybeTests() {
@@ -178,9 +174,41 @@ void TestSuite::ResetCommandLine() {
   listeners.Append(new TestClientInitializer);
 }
 
+#if !defined(OS_IOS)
+void TestSuite::AddTestLauncherResultPrinter() {
+  // Only add the custom printer if requested.
+  if (!CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kTestLauncherOutput)) {
+    return;
+  }
+
+  FilePath output_path(CommandLine::ForCurrentProcess()->GetSwitchValuePath(
+                           switches::kTestLauncherOutput));
+
+  // Do not add the result printer if output path already exists. It's an
+  // indicator there is a process printing to that file, and we're likely
+  // its child. Do not clobber the results in that case.
+  if (PathExists(output_path)) {
+    LOG(WARNING) << "Test launcher output path " << output_path.AsUTF8Unsafe()
+                 << " exists. Not adding test launcher result printer.";
+    return;
+  }
+
+  XmlUnitTestResultPrinter* printer = new XmlUnitTestResultPrinter;
+  CHECK(printer->Initialize(output_path));
+  testing::TestEventListeners& listeners =
+      testing::UnitTest::GetInstance()->listeners();
+  listeners.Append(printer);
+}
+#endif  // !defined(OS_IOS)
+
 // Don't add additional code to this method.  Instead add it to
 // Initialize().  See bug 6436.
 int TestSuite::Run() {
+#if defined(OS_IOS)
+  RunTestsFromIOSApp();
+#endif
+
 #if defined(OS_MACOSX)
   base::mac::ScopedNSAutoreleasePool scoped_pool;
 #endif
@@ -198,24 +226,6 @@ int TestSuite::Run() {
 #endif
   int result = RUN_ALL_TESTS();
 
-  // If there are failed tests, see if we should ignore the failures.
-  if (result != 0 && GetTestCount(&TestSuite::NonIgnoredFailures) == 0)
-    result = 0;
-
-  // Display the number of flaky tests.
-  int flaky_count = GetTestCount(&TestSuite::IsMarkedFlaky);
-  if (flaky_count) {
-    printf("  YOU HAVE %d FLAKY %s\n\n", flaky_count,
-           flaky_count == 1 ? "TEST" : "TESTS");
-  }
-
-  // Display the number of tests with ignored failures (FAILS).
-  int failing_count = GetTestCount(&TestSuite::IsMarkedFailing);
-  if (failing_count) {
-    printf("  YOU HAVE %d %s with ignored failures (FAILS prefix)\n\n",
-           failing_count, failing_count == 1 ? "test" : "tests");
-  }
-
 #if defined(OS_MACOSX)
   // This MUST happen before Shutdown() since Shutdown() tears down
   // objects (such as NotificationService::current()) that Cocoa
@@ -230,7 +240,23 @@ int TestSuite::Run() {
 
 // static
 void TestSuite::UnitTestAssertHandler(const std::string& str) {
-  RAW_LOG(FATAL, str.c_str());
+#if defined(OS_ANDROID)
+  // Correlating test stdio with logcat can be difficult, so we emit this
+  // helpful little hint about what was running.  Only do this for Android
+  // because other platforms don't separate out the relevant logs in the same
+  // way.
+  const ::testing::TestInfo* const test_info =
+      ::testing::UnitTest::GetInstance()->current_test_info();
+  if (test_info) {
+    LOG(ERROR) << "Currently running: " << test_info->test_case_name() << "."
+               << test_info->name();
+    fflush(stderr);
+  }
+#endif  // defined(OS_ANDROID)
+
+  // The logging system actually prints the message before calling the assert
+  // handler. Just exit now to avoid printing too many stack traces.
+  _exit(1);
 }
 
 void TestSuite::SuppressErrorDialogs() {
@@ -255,6 +281,13 @@ void TestSuite::SuppressErrorDialogs() {
 }
 
 void TestSuite::Initialize() {
+#if !defined(OS_IOS)
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kWaitForDebugger)) {
+    base::debug::WaitForDebugger(60, true);
+  }
+#endif
+
 #if defined(OS_MACOSX) && !defined(OS_IOS)
   // Some of the app unit tests spin runloops.
   mock_cr_app::RegisterMockCrApp();
@@ -268,21 +301,20 @@ void TestSuite::Initialize() {
   InitAndroidTest();
 #else
   // Initialize logging.
-  FilePath exe;
+  base::FilePath exe;
   PathService::Get(base::FILE_EXE, &exe);
-  FilePath log_filename = exe.ReplaceExtension(FILE_PATH_LITERAL("log"));
-  logging::InitLogging(
-      log_filename.value().c_str(),
-      logging::LOG_TO_BOTH_FILE_AND_SYSTEM_DEBUG_LOG,
-      logging::LOCK_LOG_FILE,
-      logging::DELETE_OLD_LOG_FILE,
-      logging::DISABLE_DCHECK_FOR_NON_OFFICIAL_RELEASE_BUILDS);
+  base::FilePath log_filename = exe.ReplaceExtension(FILE_PATH_LITERAL("log"));
+  logging::LoggingSettings settings;
+  settings.logging_dest = logging::LOG_TO_ALL;
+  settings.log_file = log_filename.value().c_str();
+  settings.delete_old = logging::DELETE_OLD_LOG_FILE;
+  logging::InitLogging(settings);
   // We want process and thread IDs because we may have multiple processes.
   // Note: temporarily enabled timestamps in an effort to catch bug 6361.
   logging::SetLogItems(true, true, true, true);
 #endif  // else defined(OS_ANDROID)
 
-  CHECK(base::EnableInProcessStackDumping());
+  CHECK(base::debug::EnableInProcessStackDumping());
 #if defined(OS_WIN)
   // Make sure we run with high resolution timer to minimize differences
   // between production code and test code.
@@ -297,10 +329,13 @@ void TestSuite::Initialize() {
     logging::SetLogAssertHandler(UnitTestAssertHandler);
   }
 
-  icu_util::Initialize();
+  base::i18n::InitializeICU();
 
   CatchMaybeTests();
   ResetCommandLine();
+#if !defined(OS_IOS)
+  AddTestLauncherResultPrinter();
+#endif  // !defined(OS_IOS)
 
   TestTimeouts::Initialize();
 }

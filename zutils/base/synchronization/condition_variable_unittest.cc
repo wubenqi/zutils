@@ -8,14 +8,16 @@
 #include <algorithm>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/synchronization/lock.h"
 #include "base/synchronization/spin_wait.h"
 #include "base/threading/platform_thread.h"
+#include "base/threading/thread.h"
 #include "base/threading/thread_collision_warner.h"
-#include "base/time.h"
+#include "base/time/time.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/platform_test.h"
 
@@ -35,7 +37,7 @@ class ConditionVariableTest : public PlatformTest {
   const TimeDelta kSixtyMs;
   const TimeDelta kOneHundredMs;
 
-  explicit ConditionVariableTest()
+  ConditionVariableTest()
       : kZeroMs(TimeDelta::FromMilliseconds(0)),
         kTenMs(TimeDelta::FromMilliseconds(10)),
         kThirtyMs(TimeDelta::FromMilliseconds(30)),
@@ -99,7 +101,6 @@ class WorkQueue : public PlatformThread::Delegate {
   int GetNumThreadsTakingAssignments() const;
   int GetNumThreadsCompletingTasks() const;
   int GetNumberOfCompletedTasks() const;
-  TimeDelta GetWorkTime() const;
 
   void SetWorkTime(TimeDelta delay);
   void SetTaskCount(int count);
@@ -129,7 +130,7 @@ class WorkQueue : public PlatformThread::Delegate {
 
   const int thread_count_;
   int waiting_thread_count_;
-  scoped_array<PlatformThreadHandle> thread_handles_;
+  scoped_ptr<PlatformThreadHandle[]> thread_handles_;
   std::vector<int> assignment_history_;  // Number of assignment per worker.
   std::vector<int> completion_history_;  // Number of completions per worker.
   int thread_started_counter_;  // Used to issue unique id to workers.
@@ -188,9 +189,60 @@ TEST_F(ConditionVariableTest, TimeoutTest) {
   lock.Release();
 }
 
+#if defined(OS_POSIX)
+const int kDiscontinuitySeconds = 2;
+
+void BackInTime(Lock* lock) {
+  AutoLock auto_lock(*lock);
+
+  timeval tv;
+  gettimeofday(&tv, NULL);
+  tv.tv_sec -= kDiscontinuitySeconds;
+  settimeofday(&tv, NULL);
+}
+
+// Tests that TimedWait ignores changes to the system clock.
+// Test is disabled by default, because it needs to run as root to muck with the
+// system clock.
+// http://crbug.com/293736
+TEST_F(ConditionVariableTest, DISABLED_TimeoutAcrossSetTimeOfDay) {
+  timeval tv;
+  gettimeofday(&tv, NULL);
+  tv.tv_sec += kDiscontinuitySeconds;
+  if (settimeofday(&tv, NULL) < 0) {
+    PLOG(ERROR) << "Could not set time of day. Run as root?";
+    return;
+  }
+
+  Lock lock;
+  ConditionVariable cv(&lock);
+  lock.Acquire();
+
+  Thread thread("Helper");
+  thread.Start();
+  thread.message_loop()->PostTask(FROM_HERE, base::Bind(&BackInTime, &lock));
+
+  TimeTicks start = TimeTicks::Now();
+  const TimeDelta kWaitTime = TimeDelta::FromMilliseconds(300);
+  // Allow for clocking rate granularity.
+  const TimeDelta kFudgeTime = TimeDelta::FromMilliseconds(50);
+
+  cv.TimedWait(kWaitTime + kFudgeTime);
+  TimeDelta duration = TimeTicks::Now() - start;
+
+  thread.Stop();
+  // We can't use EXPECT_GE here as the TimeDelta class does not support the
+  // required stream conversion.
+  EXPECT_TRUE(duration >= kWaitTime);
+  EXPECT_TRUE(duration <= TimeDelta::FromSeconds(kDiscontinuitySeconds));
+
+  lock.Release();
+}
+#endif
+
 
 // Suddenly got flaky on Win, see http://crbug.com/10607 (starting at
-// comment #15)
+// comment #15).
 #if defined(OS_WIN)
 #define MAYBE_MultiThreadConsumerTest DISABLED_MultiThreadConsumerTest
 #else
@@ -596,10 +648,6 @@ int WorkQueue::GetNumberOfCompletedTasks() const {
   for (int i = 0; i < thread_count_; ++i)
     total += completion_history_[i];
   return total;
-}
-
-TimeDelta WorkQueue::GetWorkTime() const {
-  return worker_delay_;
 }
 
 void WorkQueue::SetWorkTime(TimeDelta delay) {

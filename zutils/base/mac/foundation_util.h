@@ -16,10 +16,14 @@
 
 #if defined(__OBJC__)
 #import <Foundation/Foundation.h>
+@class NSFont;
+@class UIFont;
 #else  // __OBJC__
 #include <CoreFoundation/CoreFoundation.h>
 class NSBundle;
+class NSFont;
 class NSString;
+class UIFont;
 #endif  // __OBJC__
 
 #if defined(OS_IOS)
@@ -28,14 +32,22 @@ class NSString;
 #include <ApplicationServices/ApplicationServices.h>
 #endif
 
-class FilePath;
+// Adapted from NSObjCRuntime.h NS_ENUM definition (used in Foundation starting
+// with the OS X 10.8 SDK and the iOS 6.0 SDK).
+#if __has_extension(cxx_strong_enums) && \
+    (defined(OS_IOS) || (defined(MAC_OS_X_VERSION_10_8) && \
+                         MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_8))
+#define CR_FORWARD_ENUM(_type, _name) enum _name : _type _name
+#else
+#define CR_FORWARD_ENUM(_type, _name) _type _name
+#endif
 
 // Adapted from NSPathUtilities.h and NSObjCRuntime.h.
 #if __LP64__ || NS_BUILD_32_LIKE_64
-typedef unsigned long NSSearchPathDirectory;
+typedef CR_FORWARD_ENUM(unsigned long, NSSearchPathDirectory);
 typedef unsigned long NSSearchPathDomainMask;
 #else
-typedef unsigned int NSSearchPathDirectory;
+typedef CR_FORWARD_ENUM(unsigned int, NSSearchPathDirectory);
 typedef unsigned int NSSearchPathDomainMask;
 #endif
 
@@ -43,6 +55,9 @@ typedef struct OpaqueSecTrustRef* SecACLRef;
 typedef struct OpaqueSecTrustedApplicationRef* SecTrustedApplicationRef;
 
 namespace base {
+
+class FilePath;
+
 namespace mac {
 
 // Returns true if the application is running from a bundle
@@ -213,6 +228,12 @@ CF_TO_NS_CAST_DECL(CFReadStream, NSInputStream);
 CF_TO_NS_CAST_DECL(CFWriteStream, NSOutputStream);
 CF_TO_NS_MUTABLE_CAST_DECL(String);
 CF_TO_NS_CAST_DECL(CFURL, NSURL);
+
+#if defined(OS_IOS)
+CF_TO_NS_CAST_DECL(CTFont, UIFont);
+#else
+CF_TO_NS_CAST_DECL(CTFont, NSFont);
+#endif
 
 #undef CF_TO_NS_CAST_DECL
 #undef CF_TO_NS_MUTABLE_CAST_DECL

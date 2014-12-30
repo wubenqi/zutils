@@ -4,10 +4,14 @@
 
 #include "base/vlog.h"
 
+#include <cstddef>
+#include <ostream>
+#include <utility>
+
 #include "base/basictypes.h"
 #include "base/logging.h"
-#include "base/string_number_conversions.h"
-#include "base/string_split.h"
+#include "base/strings/string_number_conversions.h"
+#include "base/strings/string_split.h"
 
 namespace logging {
 

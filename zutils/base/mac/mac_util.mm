@@ -6,20 +6,24 @@
 
 #import <Cocoa/Cocoa.h>
 #import <IOKit/IOKitLib.h>
+
+#include <errno.h>
 #include <string.h>
 #include <sys/utsname.h>
+#include <sys/xattr.h>
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "base/logging.h"
 #include "base/mac/bundle_locations.h"
 #include "base/mac/foundation_util.h"
 #include "base/mac/mac_logging.h"
 #include "base/mac/scoped_cftyperef.h"
-#include "base/memory/scoped_generic_obj.h"
-#include "base/memory/scoped_nsobject.h"
-#include "base/string_number_conversions.h"
-#include "base/string_piece.h"
-#include "base/sys_string_conversions.h"
+#include "base/mac/scoped_ioobject.h"
+#include "base/mac/scoped_nsobject.h"
+#include "base/mac/sdk_forward_declarations.h"
+#include "base/strings/string_number_conversions.h"
+#include "base/strings/string_piece.h"
+#include "base/strings/sys_string_conversions.h"
 
 namespace base {
 namespace mac {
@@ -28,17 +32,16 @@ namespace {
 
 // The current count of outstanding requests for full screen mode from browser
 // windows, plugins, etc.
-int g_full_screen_requests[kNumFullScreenModes] = { 0, 0, 0};
+int g_full_screen_requests[kNumFullScreenModes] = { 0 };
 
-// Sets the appropriate SystemUIMode based on the current full screen requests.
-// Since only one SystemUIMode can be active at a given time, full screen
-// requests are ordered by priority.  If there are no outstanding full screen
-// requests, reverts to normal mode.  If the correct SystemUIMode is already
-// set, does nothing.
+// Sets the appropriate application presentation option based on the current
+// full screen requests.  Since only one presentation option can be active at a
+// given time, full screen requests are ordered by priority.  If there are no
+// outstanding full screen requests, reverts to normal mode.  If the correct
+// presentation option is already set, does nothing.
 void SetUIMode() {
-  // Get the current UI mode.
-  SystemUIMode current_mode;
-  GetSystemUIMode(&current_mode, NULL);
+  NSApplicationPresentationOptions current_options =
+      [NSApp presentationOptions];
 
   // Determine which mode should be active, based on which requests are
   // currently outstanding.  More permissive requests take precedence.  For
@@ -46,19 +49,33 @@ void SetUIMode() {
   // windows request |kFullScreenModeHideDock| when the fullscreen overlay is
   // down.  Precedence goes to plugins in this case, so AutoHideAll wins over
   // HideDock.
-  SystemUIMode desired_mode = kUIModeNormal;
-  SystemUIOptions desired_options = 0;
+  NSApplicationPresentationOptions desired_options =
+      NSApplicationPresentationDefault;
   if (g_full_screen_requests[kFullScreenModeAutoHideAll] > 0) {
-    desired_mode = kUIModeAllHidden;
-    desired_options = kUIOptionAutoShowMenuBar;
+    desired_options = NSApplicationPresentationHideDock |
+                      NSApplicationPresentationAutoHideMenuBar;
   } else if (g_full_screen_requests[kFullScreenModeHideDock] > 0) {
-    desired_mode = kUIModeContentHidden;
+    desired_options = NSApplicationPresentationHideDock;
   } else if (g_full_screen_requests[kFullScreenModeHideAll] > 0) {
-    desired_mode = kUIModeAllHidden;
+    desired_options = NSApplicationPresentationHideDock |
+                      NSApplicationPresentationHideMenuBar;
   }
 
-  if (current_mode != desired_mode)
-    SetSystemUIMode(desired_mode, desired_options);
+  // Mac OS X bug: if the window is fullscreened (Lion-style) and
+  // NSApplicationPresentationDefault is requested, the result is that the menu
+  // bar doesn't auto-hide. rdar://13576498 http://www.openradar.me/13576498
+  //
+  // As a workaround, in that case, explicitly set the presentation options to
+  // the ones that are set by the system as it fullscreens a window.
+  if (desired_options == NSApplicationPresentationDefault &&
+      current_options & NSApplicationPresentationFullScreen) {
+    desired_options |= NSApplicationPresentationFullScreen |
+                       NSApplicationPresentationAutoHideMenuBar |
+                       NSApplicationPresentationAutoHideDock;
+  }
+
+  if (current_options != desired_options)
+    [NSApp setPresentationOptions:desired_options];
 }
 
 // Looks into Shared File Lists corresponding to Login Items for the item
@@ -73,7 +90,7 @@ LSSharedFileListItemRef GetLoginItemForApp() {
     return NULL;
   }
 
-  scoped_nsobject<NSArray> login_items_array(
+  base::scoped_nsobject<NSArray> login_items_array(
       CFToNSCast(LSSharedFileListCopySnapshot(login_items, NULL)));
 
   NSURL* url = [NSURL fileURLWithPath:[base::mac::MainBundle() bundlePath]];
@@ -118,6 +135,15 @@ bool FSRefFromPath(const std::string& path, FSRef* ref) {
   return status == noErr;
 }
 
+CGColorSpaceRef GetGenericRGBColorSpace() {
+  // Leaked. That's OK, it's scoped to the lifetime of the application.
+  static CGColorSpaceRef g_color_space_generic_rgb(
+      CGColorSpaceCreateWithName(kCGColorSpaceGenericRGB));
+  DLOG_IF(ERROR, !g_color_space_generic_rgb) <<
+      "Couldn't get the generic RGB color space";
+  return g_color_space_generic_rgb;
+}
+
 CGColorSpaceRef GetSRGBColorSpace() {
   // Leaked.  That's OK, it's scoped to the lifetime of the application.
   static CGColorSpaceRef g_color_space_sRGB =
@@ -154,6 +180,9 @@ void RequestFullScreen(FullScreenMode mode) {
     return;
 
   DCHECK_GE(g_full_screen_requests[mode], 0);
+  if (mode < 0)
+    return;
+
   g_full_screen_requests[mode] = std::max(g_full_screen_requests[mode] + 1, 1);
   SetUIMode();
 }
@@ -164,7 +193,10 @@ void ReleaseFullScreen(FullScreenMode mode) {
   if (mode >= kNumFullScreenModes)
     return;
 
-  DCHECK_GT(g_full_screen_requests[mode], 0);
+  DCHECK_GE(g_full_screen_requests[mode], 0);
+  if (mode < 0)
+    return;
+
   g_full_screen_requests[mode] = std::max(g_full_screen_requests[mode] - 1, 0);
   SetUIMode();
 }
@@ -257,129 +289,6 @@ bool SetFileBackupExclusion(const FilePath& file_path) {
   return os_err == noErr;
 }
 
-void SetProcessName(CFStringRef process_name) {
-  if (!process_name || CFStringGetLength(process_name) == 0) {
-    NOTREACHED() << "SetProcessName given bad name.";
-    return;
-  }
-
-  if (![NSThread isMainThread]) {
-    NOTREACHED() << "Should only set process name from main thread.";
-    return;
-  }
-
-  // Warning: here be dragons! This is SPI reverse-engineered from WebKit's
-  // plugin host, and could break at any time (although realistically it's only
-  // likely to break in a new major release).
-  // When 10.7 is available, check that this still works, and update this
-  // comment for 10.8.
-
-  // Private CFType used in these LaunchServices calls.
-  typedef CFTypeRef PrivateLSASN;
-  typedef PrivateLSASN (*LSGetCurrentApplicationASNType)();
-  typedef OSStatus (*LSSetApplicationInformationItemType)(int, PrivateLSASN,
-                                                          CFStringRef,
-                                                          CFStringRef,
-                                                          CFDictionaryRef*);
-
-  static LSGetCurrentApplicationASNType ls_get_current_application_asn_func =
-      NULL;
-  static LSSetApplicationInformationItemType
-      ls_set_application_information_item_func = NULL;
-  static CFStringRef ls_display_name_key = NULL;
-
-  static bool did_symbol_lookup = false;
-  if (!did_symbol_lookup) {
-    did_symbol_lookup = true;
-    CFBundleRef launch_services_bundle =
-        CFBundleGetBundleWithIdentifier(CFSTR("com.apple.LaunchServices"));
-    if (!launch_services_bundle) {
-      DLOG(ERROR) << "Failed to look up LaunchServices bundle";
-      return;
-    }
-
-    ls_get_current_application_asn_func =
-        reinterpret_cast<LSGetCurrentApplicationASNType>(
-            CFBundleGetFunctionPointerForName(
-                launch_services_bundle, CFSTR("_LSGetCurrentApplicationASN")));
-    if (!ls_get_current_application_asn_func)
-      DLOG(ERROR) << "Could not find _LSGetCurrentApplicationASN";
-
-    ls_set_application_information_item_func =
-        reinterpret_cast<LSSetApplicationInformationItemType>(
-            CFBundleGetFunctionPointerForName(
-                launch_services_bundle,
-                CFSTR("_LSSetApplicationInformationItem")));
-    if (!ls_set_application_information_item_func)
-      DLOG(ERROR) << "Could not find _LSSetApplicationInformationItem";
-
-    CFStringRef* key_pointer = reinterpret_cast<CFStringRef*>(
-        CFBundleGetDataPointerForName(launch_services_bundle,
-                                      CFSTR("_kLSDisplayNameKey")));
-    ls_display_name_key = key_pointer ? *key_pointer : NULL;
-    if (!ls_display_name_key)
-      DLOG(ERROR) << "Could not find _kLSDisplayNameKey";
-
-    // Internally, this call relies on the Mach ports that are started up by the
-    // Carbon Process Manager.  In debug builds this usually happens due to how
-    // the logging layers are started up; but in release, it isn't started in as
-    // much of a defined order.  So if the symbols had to be loaded, go ahead
-    // and force a call to make sure the manager has been initialized and hence
-    // the ports are opened.
-    ProcessSerialNumber psn;
-    GetCurrentProcess(&psn);
-  }
-  if (!ls_get_current_application_asn_func ||
-      !ls_set_application_information_item_func ||
-      !ls_display_name_key) {
-    return;
-  }
-
-  PrivateLSASN asn = ls_get_current_application_asn_func();
-  // Constant used by WebKit; what exactly it means is unknown.
-  const int magic_session_constant = -2;
-  OSErr err =
-      ls_set_application_information_item_func(magic_session_constant, asn,
-                                               ls_display_name_key,
-                                               process_name,
-                                               NULL /* optional out param */);
-  OSSTATUS_DLOG_IF(ERROR, err != noErr, err)
-      << "Call to set process name failed";
-}
-
-// Converts a NSImage to a CGImageRef.  Normally, the system frameworks can do
-// this fine, especially on 10.6.  On 10.5, however, CGImage cannot handle
-// converting a PDF-backed NSImage into a CGImageRef.  This function will
-// rasterize the PDF into a bitmap CGImage.  The caller is responsible for
-// releasing the return value.
-CGImageRef CopyNSImageToCGImage(NSImage* image) {
-  // This is based loosely on http://www.cocoadev.com/index.pl?CGImageRef .
-  NSSize size = [image size];
-  ScopedCFTypeRef<CGContextRef> context(
-      CGBitmapContextCreate(NULL,  // Allow CG to allocate memory.
-                            size.width,
-                            size.height,
-                            8,  // bitsPerComponent
-                            0,  // bytesPerRow - CG will calculate by default.
-                            [[NSColorSpace genericRGBColorSpace] CGColorSpace],
-                            kCGBitmapByteOrder32Host |
-                                kCGImageAlphaPremultipliedFirst));
-  if (!context.get())
-    return NULL;
-
-  [NSGraphicsContext saveGraphicsState];
-  [NSGraphicsContext setCurrentContext:
-      [NSGraphicsContext graphicsContextWithGraphicsPort:context.get()
-                                                 flipped:NO]];
-  [image drawInRect:NSMakeRect(0,0, size.width, size.height)
-           fromRect:NSZeroRect
-          operation:NSCompositeCopy
-           fraction:1.0];
-  [NSGraphicsContext restoreGraphicsState];
-
-  return CGBitmapContextCreateImage(context);
-}
-
 bool CheckLoginItemStatus(bool* is_hidden) {
   ScopedCFTypeRef<LSSharedFileListItemRef> item(GetLoginItemForApp());
   if (!item.get())
@@ -447,24 +356,40 @@ void RemoveFromLoginItems() {
 
 bool WasLaunchedAsLoginOrResumeItem() {
   ProcessSerialNumber psn = { 0, kCurrentProcess };
+  ProcessInfoRec info = {};
+  info.processInfoLength = sizeof(info);
 
-  scoped_nsobject<NSDictionary> process_info(
-      CFToNSCast(ProcessInformationCopyDictionary(&psn,
-                     kProcessDictionaryIncludeAllInformationMask)));
+  if (GetProcessInformation(&psn, &info) == noErr) {
+    ProcessInfoRec parent_info = {};
+    parent_info.processInfoLength = sizeof(parent_info);
+    if (GetProcessInformation(&info.processLauncher, &parent_info) == noErr)
+      return parent_info.processSignature == 'lgnw';
+  }
+  return false;
+}
 
-  long long temp = [[process_info objectForKey:@"ParentPSN"] longLongValue];
-  ProcessSerialNumber parent_psn =
-      { (temp >> 32) & 0x00000000FFFFFFFFLL, temp & 0x00000000FFFFFFFFLL };
+bool WasLaunchedAsLoginItemRestoreState() {
+  // "Reopen windows..." option was added for Lion.  Prior OS versions should
+  // not have this behavior.
+  if (IsOSSnowLeopard() || !WasLaunchedAsLoginOrResumeItem())
+    return false;
 
-  scoped_nsobject<NSDictionary> parent_info(
-      CFToNSCast(ProcessInformationCopyDictionary(&parent_psn,
-                     kProcessDictionaryIncludeAllInformationMask)));
+  CFStringRef app = CFSTR("com.apple.loginwindow");
+  CFStringRef save_state = CFSTR("TALLogoutSavesState");
+  ScopedCFTypeRef<CFPropertyListRef> plist(
+      CFPreferencesCopyAppValue(save_state, app));
+  // According to documentation, com.apple.loginwindow.plist does not exist on a
+  // fresh installation until the user changes a login window setting.  The
+  // "reopen windows" option is checked by default, so the plist would exist had
+  // the user unchecked it.
+  // https://developer.apple.com/library/mac/documentation/macosx/conceptual/bpsystemstartup/chapters/CustomLogin.html
+  if (!plist)
+    return true;
 
-  // Check that creator process code is that of loginwindow.
-  BOOL result =
-      [[parent_info objectForKey:@"FileCreator"] isEqualToString:@"lgnw"];
+  if (CFBooleanRef restore_state = base::mac::CFCast<CFBooleanRef>(plist))
+    return CFBooleanGetValue(restore_state);
 
-  return result == YES;
+  return false;
 }
 
 bool WasLaunchedAsHiddenLoginItem() {
@@ -482,6 +407,12 @@ bool WasLaunchedAsHiddenLoginItem() {
     return false;
   }
   return IsHiddenLoginItem(item);
+}
+
+bool RemoveQuarantineAttribute(const FilePath& file_path) {
+  const char kQuarantineAttrName[] = "com.apple.quarantine";
+  int status = removexattr(file_path.value().c_str(), kQuarantineAttrName, 0);
+  return status == 0 || errno == ENOATTR;
 }
 
 namespace {
@@ -545,7 +476,7 @@ int MacOSXMinorVersionInternal() {
   // immediate death.
   CHECK(darwin_major_version >= 6);
   int mac_os_x_minor_version = darwin_major_version - 4;
-  DLOG_IF(WARNING, darwin_major_version > 12) << "Assuming Darwin "
+  DLOG_IF(WARNING, darwin_major_version > 14) << "Assuming Darwin "
       << base::IntToString(darwin_major_version) << " is Mac OS X 10."
       << base::IntToString(mac_os_x_minor_version);
 
@@ -563,6 +494,8 @@ enum {
   SNOW_LEOPARD_MINOR_VERSION = 6,
   LION_MINOR_VERSION = 7,
   MOUNTAIN_LION_MINOR_VERSION = 8,
+  MAVERICKS_MINOR_VERSION = 9,
+  YOSEMITE_MINOR_VERSION = 10,
 };
 
 }  // namespace
@@ -576,12 +509,6 @@ bool IsOSSnowLeopard() {
 #if !defined(BASE_MAC_MAC_UTIL_H_INLINED_GT_10_7)
 bool IsOSLion() {
   return MacOSXMinorVersion() == LION_MINOR_VERSION;
-}
-#endif
-
-#if !defined(BASE_MAC_MAC_UTIL_H_INLINED_GT_10_7)
-bool IsOSLionOrEarlier() {
-  return MacOSXMinorVersion() <= LION_MINOR_VERSION;
 }
 #endif
 
@@ -603,40 +530,54 @@ bool IsOSMountainLionOrLater() {
 }
 #endif
 
-#if !defined(BASE_MAC_MAC_UTIL_H_INLINED_GT_10_8)
-bool IsOSDangerouslyLaterThanMountainLionForUseByCFAllocatorReplacement() {
-  return MacOSXMinorVersion() > MOUNTAIN_LION_MINOR_VERSION;
+#if !defined(BASE_MAC_MAC_UTIL_H_INLINED_GT_10_9)
+bool IsOSMavericks() {
+  return MacOSXMinorVersion() == MAVERICKS_MINOR_VERSION;
 }
 #endif
 
-namespace {
+#if !defined(BASE_MAC_MAC_UTIL_H_INLINED_GE_10_9)
+bool IsOSMavericksOrLater() {
+  return MacOSXMinorVersion() >= MAVERICKS_MINOR_VERSION;
+}
+#endif
 
-// ScopedGenericObj functor for IOObjectRelease().
-class ScopedReleaseIOObject {
- public:
-  void operator()(io_object_t x) const {
-    IOObjectRelease(x);
-  }
-};
+#if !defined(BASE_MAC_MAC_UTIL_H_INLINED_GT_10_10)
+bool IsOSYosemite() {
+  return MacOSXMinorVersion() == YOSEMITE_MINOR_VERSION;
+}
+#endif
 
-}  // namespace
+#if !defined(BASE_MAC_MAC_UTIL_H_INLINED_GE_10_10)
+bool IsOSYosemiteOrLater() {
+  return MacOSXMinorVersion() >= YOSEMITE_MINOR_VERSION;
+}
+#endif
+
+#if !defined(BASE_MAC_MAC_UTIL_H_INLINED_GT_10_10)
+bool IsOSLaterThanYosemite_DontCallThis() {
+  return MacOSXMinorVersion() > YOSEMITE_MINOR_VERSION;
+}
+#endif
 
 std::string GetModelIdentifier() {
-  ScopedGenericObj<io_service_t, ScopedReleaseIOObject>
-      platform_expert(IOServiceGetMatchingService(
-          kIOMasterPortDefault, IOServiceMatching("IOPlatformExpertDevice")));
-  if (!platform_expert)
-    return "";
-  ScopedCFTypeRef<CFDataRef> model_data(
-      static_cast<CFDataRef>(IORegistryEntryCreateCFProperty(
-          platform_expert,
-          CFSTR("model"),
-          kCFAllocatorDefault,
-          0)));
-  if (!model_data)
-    return "";
-  return reinterpret_cast<const char*>(
-      CFDataGetBytePtr(model_data));
+  std::string return_string;
+  ScopedIOObject<io_service_t> platform_expert(
+      IOServiceGetMatchingService(kIOMasterPortDefault,
+                                  IOServiceMatching("IOPlatformExpertDevice")));
+  if (platform_expert) {
+    ScopedCFTypeRef<CFDataRef> model_data(
+        static_cast<CFDataRef>(IORegistryEntryCreateCFProperty(
+            platform_expert,
+            CFSTR("model"),
+            kCFAllocatorDefault,
+            0)));
+    if (model_data) {
+      return_string =
+          reinterpret_cast<const char*>(CFDataGetBytePtr(model_data));
+    }
+  }
+  return return_string;
 }
 
 bool ParseModelIdentifier(const std::string& ident,

@@ -11,7 +11,7 @@
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/json/json_reader.h"
-#include "base/string_piece.h"
+#include "base/strings/string_piece.h"
 
 #if !defined(OS_CHROMEOS)
 #include "base/gtest_prod_util.h"
@@ -31,8 +31,7 @@ friend class test_case_name##_##test_name##_Test
 #define FRIEND_TEST_ALL_PREFIXES(test_case_name, test_name) \
   FRIEND_TEST(test_case_name, test_name); \
   FRIEND_TEST(test_case_name, DISABLED_##test_name); \
-  FRIEND_TEST(test_case_name, FLAKY_##test_name); \
-  FRIEND_TEST(test_case_name, FAILS_##test_name)
+  FRIEND_TEST(test_case_name, FLAKY_##test_name)
 #endif  // OS_CHROMEOS
 
 namespace base {

@@ -1,0 +1,35 @@
+Patch目的：
+  将chromium/base改造成用于win/linux/mac平台上自用的基础库，以替代boost等c++库，主要用于服务端或基于命令行的客户端程序。
+  
+chromium/base原始版本：
+  Repository Root: http://src.chromium.org/svn
+  Repository UUID: 4ff67af0-8c30-449e-8e8b-ad334ec8d88c
+  Revision: 293502
+  Node Kind: directory
+  Schedule: normal
+  Last Changed Author: vitalybuka@chromium.org
+  Last Changed Rev: 291456
+  Last Changed Date: 2014-08-23 02:36:11 +0800 (六, 23  8 2014)
+
+Patch by wubenqi:
+1. 移除nacl、android、ios支持：
+  移除目录base/android
+  移除目录base/ios
+  
+2. 移除power_monitor支持：
+  移除目录base/power_monitor
+  
+3. 移除gui支持：
+  移除目录base/nix
+  移除目录base/x11
+  移除目录base/xdg_mime
+  移除目录base/xdg_user_dirs
+  
+4. 修改部分代码以支持vs2008：
+  可以通过命令：
+  grep PATCH_BY_WUBENQI ./base -r -n
+  过滤出对原有代码的修改
+
+5. 移除全部android和ios的实现文件，例如：sys_info_android.cc等
+
+6. 其它的见原代码中的 #if defined(PATCH_BY_WUBENQI) 或 #if !defined(PATCH_BY_WUBENQI)

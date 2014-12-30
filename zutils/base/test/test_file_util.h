@@ -10,13 +10,24 @@
 #include <string>
 
 #include "base/compiler_specific.h"
-#include "base/file_path.h"
+#include "base/files/file_path.h"
+
+#if defined(OS_ANDROID)
+#include <jni.h>
+#include "base/basictypes.h"
+#endif
+
+namespace base {
 
 class FilePath;
 
-namespace file_util {
+// Clear a specific file from the system cache like EvictFileFromSystemCache,
+// but on failure it will sleep and retry. On the Windows buildbots, eviction
+// can fail if the file is marked in use, and this will throw off timings that
+// rely on uncached files.
+bool EvictFileFromSystemCacheWithRetry(const FilePath& file);
 
-// Wrapper over file_util::Delete. On Windows repeatedly invokes Delete in case
+// Wrapper over base::Delete. On Windows repeatedly invokes Delete in case
 // of failure to workaround Windows file locking semantics. Returns true on
 // success.
 bool DieFileDie(const FilePath& file, bool recurse);
@@ -24,15 +35,6 @@ bool DieFileDie(const FilePath& file, bool recurse);
 // Clear a specific file from the system cache. After this call, trying
 // to access this file will result in a cold load from the hard drive.
 bool EvictFileFromSystemCache(const FilePath& file);
-
-// Like CopyFileNoCache but recursively copies all files and subdirectories
-// in the given input directory to the output directory. Any files in the
-// destination that already exist will be overwritten.
-//
-// Returns true on success. False means there was some error copying, so the
-// state of the destination is unknown.
-bool CopyRecursiveDirNoCache(const FilePath& source_dir,
-                             const FilePath& dest_dir);
 
 #if defined(OS_WIN)
 // Returns true if the volume supports Alternate Data Streams.
@@ -45,31 +47,34 @@ bool VolumeSupportsADS(const FilePath& path);
 bool HasInternetZoneIdentifier(const FilePath& full_path);
 #endif  // defined(OS_WIN)
 
-// In general it's not reliable to convert a FilePath to a wstring and we use
-// string16 elsewhere for Unicode strings, but in tests it is frequently
-// convenient to be able to compare paths to literals like L"foobar".
-std::wstring FilePathAsWString(const FilePath& path);
-FilePath WStringAsFilePath(const std::wstring& path);
-
 // For testing, make the file unreadable or unwritable.
 // In POSIX, this does not apply to the root user.
 bool MakeFileUnreadable(const FilePath& path) WARN_UNUSED_RESULT;
 bool MakeFileUnwritable(const FilePath& path) WARN_UNUSED_RESULT;
 
 // Saves the current permissions for a path, and restores it on destruction.
-class PermissionRestorer {
+class FilePermissionRestorer {
  public:
-  explicit PermissionRestorer(const FilePath& path);
-  ~PermissionRestorer();
+  explicit FilePermissionRestorer(const FilePath& path);
+  ~FilePermissionRestorer();
 
  private:
   const FilePath path_;
   void* info_;  // The opaque stored permission information.
   size_t length_;  // The length of the stored permission information.
 
-  DISALLOW_COPY_AND_ASSIGN(PermissionRestorer);
+  DISALLOW_COPY_AND_ASSIGN(FilePermissionRestorer);
 };
 
-}  // namespace file_util
+#if defined(OS_ANDROID)
+// Register the ContentUriTestUrils JNI bindings.
+bool RegisterContentUriTestUtils(JNIEnv* env);
+
+// Insert an image file into the MediaStore, and retrieve the content URI for
+// testing purpose.
+FilePath InsertImageIntoMediaStore(const FilePath& path);
+#endif  // defined(OS_ANDROID)
+
+}  // namespace base
 
 #endif  // BASE_TEST_TEST_FILE_UTIL_H_

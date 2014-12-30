@@ -7,11 +7,12 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/location.h"
-#include "base/message_loop.h"
-#include "base/test/test_timeouts.h"
-#include "base/time.h"
-#include "base/threading/thread_checker_impl.h"
+#include "base/message_loop/message_loop.h"
+#include "base/run_loop.h"
 #include "base/synchronization/waitable_event.h"
+#include "base/test/test_timeouts.h"
+#include "base/threading/thread_checker_impl.h"
+#include "base/time/time.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/platform_test.h"
 
@@ -103,7 +104,7 @@ TEST_F(WorkerPoolTest, MAYBE_PostTaskAndReply) {
     // device.
     pthread_yield_np();
 #endif
-    MessageLoop::current()->RunAllPending();
+    RunLoop().RunUntilIdle();
   }
   EXPECT_TRUE(tester->finished());
 }

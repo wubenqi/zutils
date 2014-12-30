@@ -9,8 +9,7 @@
 namespace base {
 
 // Do not put everything inside an anonymous namespace.  If you do, many of the
-// helper function declarations will generate unused definition warnings unless
-// unused definition warnings.
+// helper function declarations will generate unused definition warnings.
 
 static const int kParentValue = 1;
 static const int kChildValue = 2;
@@ -143,7 +142,7 @@ void WontCompile() {
   ref_arg_cb.Run(p);
 }
 
-#elif defined(NCTEST_DISALLOW_BIND_TO_NON_CONST_REF_PARAM)  // [r"creating array with negative size"]
+#elif defined(NCTEST_DISALLOW_BIND_TO_NON_CONST_REF_PARAM)  // [r"size of array is negative"]
 
 // Binding functions with reference parameters, unsupported.
 //
@@ -154,7 +153,7 @@ void WontCompile() {
   ref_cb.Run();
 }
 
-#elif defined(NCTEST_NO_IMPLICIT_ARRAY_PTR_CONVERSION)  // [r"creating array with negative size"]
+#elif defined(NCTEST_NO_IMPLICIT_ARRAY_PTR_CONVERSION)  // [r"size of array is negative"]
 
 // A method should not be bindable with an array of objects.
 //
@@ -168,7 +167,7 @@ void WontCompile() {
   method_bound_to_array_cb.Run();
 }
 
-#elif defined(NCTEST_NO_RAW_PTR_FOR_REFCOUNTED_TYPES)  // [r"creating array with negative size"]
+#elif defined(NCTEST_NO_RAW_PTR_FOR_REFCOUNTED_TYPES)  // [r"size of array is negative"]
 
 // Refcounted types should not be bound as a raw pointer.
 void WontCompile() {
@@ -180,7 +179,7 @@ void WontCompile() {
       Bind(&VoidPolymorphic1<HasRef*>, &for_raw_ptr);
 }
 
-#elif defined(NCTEST_WEAKPTR_BIND_MUST_RETURN_VOID)  // [r"creating array with negative size"]
+#elif defined(NCTEST_WEAKPTR_BIND_MUST_RETURN_VOID)  // [r"size of array is negative"]
 
 // WeakPtrs cannot be bound to methods with return types.
 void WontCompile() {
@@ -191,7 +190,7 @@ void WontCompile() {
   weak_ptr_with_non_void_return_type.Run();
 }
 
-#elif defined(NCTEST_DISALLOW_ASSIGN_DIFFERINT_TYPES)  // [r"invalid conversion from"]
+#elif defined(NCTEST_DISALLOW_ASSIGN_DIFFERENT_TYPES)  // [r"conversion from 'base::Callback<void\(int\)>' to non-scalar type"]
 
 // Bind result cannot be assigned to Callbacks with a mismatching type.
 void WontCompile() {

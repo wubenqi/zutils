@@ -54,9 +54,9 @@ static void NTAPI on_callback(PVOID h, DWORD reason, PVOID reserved);
 
 #endif  // _WIN64
 
-// Explicitly depend on tlssup.cc variable to bracket the list of TLS callbacks.
-extern "C" PIMAGE_TLS_CALLBACK __xl_a;
-extern "C" PIMAGE_TLS_CALLBACK __xl_z;
+// Explicitly depend on VC\crt\src\tlssup.c variables
+// to bracket the list of TLS callbacks.
+extern "C" PIMAGE_TLS_CALLBACK __xl_a, __xl_z;
 
 // extern "C" suppresses C++ name mangling so we know the symbol names for the
 // linker /INCLUDE:symbol pragmas above.
@@ -84,8 +84,9 @@ PIMAGE_TLS_CALLBACK p_thread_callback_dllmain_typical_entry = on_callback;
 #endif  // _WIN64
 }  // extern "C"
 
+// Custom crash code to get a unique entry in crash reports.
 NOINLINE static void CrashOnProcessDetach() {
-  *((int*)0) = 0x356;
+  *static_cast<volatile int*>(0) = 0x356;
 }
 
 // Make DllMain call the listed callbacks.  This way any third parties that are

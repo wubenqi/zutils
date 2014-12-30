@@ -12,7 +12,7 @@
 #include <unistd.h>
 
 #include "base/logging.h"
-#include "base/eintr_wrapper.h"
+#include "base/posix/eintr_wrapper.h"
 
 // See the comments in dir_reader_posix.h about this.
 
@@ -37,7 +37,7 @@ class DirReaderLinux {
 
   ~DirReaderLinux() {
     if (fd_ >= 0) {
-      if (HANDLE_EINTR(close(fd_)))
+      if (IGNORE_EINTR(close(fd_)))
         RAW_LOG(ERROR, "Failed to close directory handle");
     }
   }

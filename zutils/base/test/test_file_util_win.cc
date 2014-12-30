@@ -4,20 +4,20 @@
 
 #include "base/test/test_file_util.h"
 
+#include <windows.h>
 #include <aclapi.h>
 #include <shlwapi.h>
-#include <windows.h>
 
 #include <vector>
 
-#include "base/file_path.h"
-#include "base/file_util.h"
+#include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
-#include "base/string_split.h"
-#include "base/win/scoped_handle.h"
+#include "base/strings/string_split.h"
 #include "base/threading/platform_thread.h"
+#include "base/win/scoped_handle.h"
 
-namespace file_util {
+namespace base {
 
 static const ptrdiff_t kOneMB = 1024 * 1024;
 
@@ -47,7 +47,7 @@ bool DenyFilePermission(const FilePath& path, DWORD permission) {
   change.Trustee.MultipleTrusteeOperation = NO_MULTIPLE_TRUSTEE;
   change.Trustee.TrusteeForm = TRUSTEE_IS_NAME;
   change.Trustee.TrusteeType = TRUSTEE_IS_USER;
-  change.Trustee.ptstrName = L"CURRENT_USER";
+  change.Trustee.ptstrName = const_cast<wchar_t*>(L"CURRENT_USER");
 
   PACL new_dacl;
   if (SetEntriesInAcl(1, &change, old_dacl, &new_dacl) != ERROR_SUCCESS) {
@@ -115,19 +115,18 @@ bool RestorePermissionInfo(const FilePath& path, void* info, size_t length) {
 bool DieFileDie(const FilePath& file, bool recurse) {
   // It turns out that to not induce flakiness a long timeout is needed.
   const int kIterations = 25;
-  const base::TimeDelta kTimeout = base::TimeDelta::FromSeconds(10) /
-                                   kIterations;
+  const TimeDelta kTimeout = TimeDelta::FromSeconds(10) / kIterations;
 
-  if (!file_util::PathExists(file))
+  if (!PathExists(file))
     return true;
 
   // Sometimes Delete fails, so try a few more times. Divide the timeout
   // into short chunks, so that if a try succeeds, we won't delay the test
   // for too long.
   for (int i = 0; i < kIterations; ++i) {
-    if (file_util::Delete(file, recurse))
+    if (DeleteFile(file, recurse))
       return true;
-    base::PlatformThread::Sleep(kTimeout);
+    PlatformThread::Sleep(kTimeout);
   }
   return false;
 }
@@ -215,59 +214,6 @@ bool EvictFileFromSystemCache(const FilePath& file) {
   return true;
 }
 
-// Like CopyFileNoCache but recursively copies all files and subdirectories
-// in the given input directory to the output directory.
-bool CopyRecursiveDirNoCache(const FilePath& source_dir,
-                             const FilePath& dest_dir) {
-  // Try to create the directory if it doesn't already exist.
-  if (!CreateDirectory(dest_dir)) {
-    if (GetLastError() != ERROR_ALREADY_EXISTS)
-      return false;
-  }
-
-  std::vector<std::wstring> files_copied;
-
-  FilePath src(source_dir.AppendASCII("*"));
-
-  WIN32_FIND_DATA fd;
-  HANDLE fh = FindFirstFile(src.value().c_str(), &fd);
-  if (fh == INVALID_HANDLE_VALUE)
-    return false;
-
-  do {
-    std::wstring cur_file(fd.cFileName);
-    if (cur_file == L"." || cur_file == L"..")
-      continue;  // Skip these special entries.
-
-    FilePath cur_source_path = source_dir.Append(cur_file);
-    FilePath cur_dest_path = dest_dir.Append(cur_file);
-
-    if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-      // Recursively copy a subdirectory. We stripped "." and ".." already.
-      if (!CopyRecursiveDirNoCache(cur_source_path, cur_dest_path)) {
-        FindClose(fh);
-        return false;
-      }
-    } else {
-      // Copy the file.
-      if (!::CopyFile(cur_source_path.value().c_str(),
-                      cur_dest_path.value().c_str(), false)) {
-        FindClose(fh);
-        return false;
-      }
-
-      // We don't check for errors from this function, often, we are copying
-      // files that are in the repository, and they will have read-only set.
-      // This will prevent us from evicting from the cache, but these don't
-      // matter anyway.
-      EvictFileFromSystemCache(cur_dest_path);
-    }
-  } while (FindNextFile(fh, &fd));
-
-  FindClose(fh);
-  return true;
-}
-
 // Checks if the volume supports Alternate Data Streams. This is required for
 // the Zone Identifier implementation.
 bool VolumeSupportsADS(const FilePath& path) {
@@ -293,12 +239,12 @@ bool VolumeSupportsADS(const FilePath& path) {
 bool HasInternetZoneIdentifier(const FilePath& full_path) {
   FilePath zone_path(full_path.value() + L":Zone.Identifier");
   std::string zone_path_contents;
-  if (!file_util::ReadFileToString(zone_path, &zone_path_contents))
+  if (!ReadFileToString(zone_path, &zone_path_contents))
     return false;
 
   std::vector<std::string> lines;
   // This call also trims whitespaces, including carriage-returns (\r).
-  base::SplitString(zone_path_contents, '\n', &lines);
+  SplitString(zone_path_contents, '\n', &lines);
 
   switch (lines.size()) {
     case 3:
@@ -313,13 +259,6 @@ bool HasInternetZoneIdentifier(const FilePath& full_path) {
   }
 }
 
-std::wstring FilePathAsWString(const FilePath& path) {
-  return path.value();
-}
-FilePath WStringAsFilePath(const std::wstring& path) {
-  return FilePath(path);
-}
-
 bool MakeFileUnreadable(const FilePath& path) {
   return DenyFilePermission(path, GENERIC_READ);
 }
@@ -328,16 +267,16 @@ bool MakeFileUnwritable(const FilePath& path) {
   return DenyFilePermission(path, GENERIC_WRITE);
 }
 
-PermissionRestorer::PermissionRestorer(const FilePath& path)
+FilePermissionRestorer::FilePermissionRestorer(const FilePath& path)
     : path_(path), info_(NULL), length_(0) {
   info_ = GetPermissionInfo(path_, &length_);
   DCHECK(info_ != NULL);
   DCHECK_NE(0u, length_);
 }
 
-PermissionRestorer::~PermissionRestorer() {
+FilePermissionRestorer::~FilePermissionRestorer() {
   if (!RestorePermissionInfo(path_, info_, length_))
     NOTREACHED();
 }
 
-}  // namespace file_util
+}  // namespace base

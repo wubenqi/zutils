@@ -11,6 +11,7 @@
 
 #include "base/base_export.h"
 #include "base/basictypes.h"
+#include "base/stl_util.h"
 
 namespace base {
 namespace win {
@@ -25,6 +26,7 @@ namespace win {
 class BASE_EXPORT RegKey {
  public:
   RegKey();
+  explicit RegKey(HKEY key);
   RegKey(HKEY rootkey, const wchar_t* subkey, REGSAM access);
   ~RegKey();
 
@@ -45,11 +47,17 @@ class BASE_EXPORT RegKey {
   // Closes this reg key.
   void Close();
 
-  // Returns false if this key does not have the specified value, of if an error
+  // Replaces the handle of the registry key and takes ownership of the handle.
+  void Set(HKEY key);
+
+  // Transfers ownership away from this object.
+  HKEY Take();
+
+  // Returns false if this key does not have the specified value, or if an error
   // occurrs while attempting to access it.
   bool HasValue(const wchar_t* value_name) const;
 
-  // Returns the number of values for this key, of 0 if the number cannot be
+  // Returns the number of values for this key, or 0 if the number cannot be
   // determined.
   DWORD GetValueCount() const;
 
@@ -62,6 +70,10 @@ class BASE_EXPORT RegKey {
   // Kill a key and everything that live below it; please be careful when using
   // it.
   LONG DeleteKey(const wchar_t* name);
+
+  // Deletes an empty subkey.  If the subkey has subkeys or values then this
+  // will fail.
+  LONG DeleteEmptyKey(const wchar_t* name);
 
   // Deletes a single value within the key.
   LONG DeleteValue(const wchar_t* name);
@@ -124,16 +136,25 @@ class BASE_EXPORT RegKey {
   HKEY Handle() const { return key_; }
 
  private:
+  // Calls RegDeleteKeyEx on supported platforms, alternatively falls back to
+  // RegDeleteKey.
+  static LONG RegDeleteKeyExWrapper(HKEY hKey,
+                                    const wchar_t* lpSubKey,
+                                    REGSAM samDesired,
+                                    DWORD Reserved);
+
+  // Recursively deletes a key and all of its subkeys.
+  static LONG RegDelRecurse(HKEY root_key,
+                            const std::wstring& name,
+                            REGSAM access);
   HKEY key_;  // The registry key being iterated.
   HANDLE watch_event_;
+  REGSAM wow64access_;
 
   DISALLOW_COPY_AND_ASSIGN(RegKey);
 };
 
 // Iterates the entries found in a particular folder on the registry.
-// For this application I happen to know I wont need data size larger
-// than MAX_PATH, but in real life this wouldn't neccessarily be
-// adequate.
 class BASE_EXPORT RegistryValueIterator {
  public:
   RegistryValueIterator(HKEY root_key, const wchar_t* folder_key);
@@ -148,8 +169,9 @@ class BASE_EXPORT RegistryValueIterator {
   // Advances to the next registry entry.
   void operator++();
 
-  const wchar_t* Name() const { return name_; }
-  const wchar_t* Value() const { return value_; }
+  const wchar_t* Name() const { return name_.c_str(); }
+  const wchar_t* Value() const { return vector_as_array(&value_); }
+  // ValueSize() is in bytes.
   DWORD ValueSize() const { return value_size_; }
   DWORD Type() const { return type_; }
 
@@ -166,8 +188,8 @@ class BASE_EXPORT RegistryValueIterator {
   int index_;
 
   // Current values.
-  wchar_t name_[MAX_PATH];
-  wchar_t value_[MAX_PATH];
+  std::wstring name_;
+  std::vector<wchar_t> value_;
   DWORD value_size_;
   DWORD type_;
 

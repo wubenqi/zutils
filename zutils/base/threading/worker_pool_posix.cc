@@ -10,7 +10,7 @@
 #include "base/lazy_instance.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted.h"
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 #include "base/threading/platform_thread.h"
 #include "base/threading/thread_local.h"
 #include "base/threading/worker_pool.h"
@@ -91,7 +91,7 @@ void WorkerThread::ThreadMain() {
     PendingTask pending_task = pool_->WaitForTask();
     if (pending_task.task.is_null())
       break;
-    TRACE_EVENT2("task", "WorkerThread::ThreadMain::Run",
+    TRACE_EVENT2("toplevel", "WorkerThread::ThreadMain::Run",
         "src_file", pending_task.posted_from.file_name(),
         "src_func", pending_task.posted_from.function_name());
 
@@ -123,15 +123,13 @@ bool WorkerPool::RunsTasksOnCurrentThread() {
   return g_worker_pool_running_on_this_thread.Get().Get();
 }
 
-PosixDynamicThreadPool::PosixDynamicThreadPool(
-    const std::string& name_prefix,
-    int idle_seconds_before_exit)
+PosixDynamicThreadPool::PosixDynamicThreadPool(const std::string& name_prefix,
+                                               int idle_seconds_before_exit)
     : name_prefix_(name_prefix),
       idle_seconds_before_exit_(idle_seconds_before_exit),
       pending_tasks_available_cv_(&lock_),
       num_idle_threads_(0),
-      terminated_(false),
-      num_idle_threads_cv_(NULL) {}
+      terminated_(false) {}
 
 PosixDynamicThreadPool::~PosixDynamicThreadPool() {
   while (!pending_tasks_.empty())

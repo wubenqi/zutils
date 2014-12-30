@@ -9,7 +9,6 @@
 #include <string>
 
 #include "base/basictypes.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/metrics/histogram.h"
 
 namespace base {
@@ -22,17 +21,17 @@ class HistogramSamples;
 // error report mechanism.
 class BASE_EXPORT HistogramFlattener {
  public:
-  virtual void RecordDelta(const Histogram& histogram,
+  virtual void RecordDelta(const HistogramBase& histogram,
                            const HistogramSamples& snapshot) = 0;
 
-  // Will be called each time a type of Inconsistenies is seen on a histogram,
+  // Will be called each time a type of Inconsistency is seen on a histogram,
   // during inspections done internally in HistogramSnapshotManager class.
-  virtual void InconsistencyDetected(Histogram::Inconsistencies problem) = 0;
+  virtual void InconsistencyDetected(HistogramBase::Inconsistency problem) = 0;
 
-  // Will be called when a type of Inconsistenies is seen for the first time
-  // on a histogram.
+  // Will be called when a type of Inconsistency is seen for the first time on
+  // a histogram.
   virtual void UniqueInconsistencyDetected(
-      Histogram::Inconsistencies problem) = 0;
+      HistogramBase::Inconsistency problem) = 0;
 
   // Will be called when the total logged sample count of a histogram
   // differs from the sum of logged sample count in all the buckets.  The

@@ -12,8 +12,9 @@ namespace {
 TEST(BucketRangesTest, NormalSetup) {
   BucketRanges ranges(5);
   ASSERT_EQ(5u, ranges.size());
+  ASSERT_EQ(4u, ranges.bucket_count());
 
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 5; ++i) {
     EXPECT_EQ(0, ranges.range(i));
   }
   EXPECT_EQ(0u, ranges.checksum());
@@ -73,7 +74,7 @@ TEST(BucketRangesTest, Checksum) {
 
 // Table was generated similarly to sample code for CRC-32 given on:
 // http://www.w3.org/TR/PNG/#D-CRCAppendix.
-TEST(HistogramTest, Crc32TableTest) {
+TEST(BucketRangesTest, Crc32TableTest) {
   for (int i = 0; i < 256; ++i) {
     uint32 checksum = i;
     for (int j = 0; j < 8; ++j) {

@@ -5,13 +5,18 @@
 #ifndef BASE_TEST_TEST_SHORTCUT_WIN_H_
 #define BASE_TEST_TEST_SHORTCUT_WIN_H_
 
-#include "base/file_path.h"
+#include "base/files/file_path.h"
 #include "base/win/shortcut.h"
 
 // Windows shortcut functions used only by tests.
 
 namespace base {
 namespace win {
+
+// Validates |actual_path|'s LongPathName case-insensitively matches
+// |expected_path|'s LongPathName.
+void ValidatePathsAreEqual(const base::FilePath& expected_path,
+                           const base::FilePath& actual_path);
 
 // Validates that a shortcut exists at |shortcut_path| with the expected
 // |properties|.

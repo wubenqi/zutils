@@ -4,7 +4,12 @@
 
 // This file adds defines about the platform we're currently building on.
 //  Operating System:
+// #if defined(PATCH_BY_WUBENQI)
+//  ²»Ö§³ÖOS_NACL
 //    OS_WIN / OS_MACOSX / OS_LINUX / OS_POSIX (MACOSX or LINUX)
+// else
+//    OS_WIN / OS_MACOSX / OS_LINUX / OS_POSIX (MACOSX or LINUX) / OS_NACL
+// #endif
 //  Compiler:
 //    COMPILER_MSVC / COMPILER_GCC
 //  Processor:
@@ -14,31 +19,56 @@
 #ifndef BUILD_BUILD_CONFIG_H_
 #define BUILD_BUILD_CONFIG_H_
 
-// A set of macros to use for platform detection.
+#if !defined(PATCH_BY_WUBENQI)
+#define PATCH_BY_WUBENQI 1
+#endif
+
 #if defined(__APPLE__)
-#define OS_MACOSX 1
-#elif defined(ANDROID)
-#define OS_ANDROID 1
-#elif defined(__native_client__)
+#include <TargetConditionals.h>
+#endif
+
+// A set of macros to use for platform detection.
+#if defined(__native_client__)
+#if defined(PATCH_BY_WUBENQI)
+#error Notsupport __native_client__
+#else
+// __native_client__ must be first, so that other OS_ defines are not set.
 #define OS_NACL 1
+#endif
+#elif defined(ANDROID)
+#if defined(PATCH_BY_WUBENQI)
+#error Notsupport ANDROID
+#else
+#define OS_ANDROID 1
+#endif
+#elif defined(__APPLE__)
+#define OS_MACOSX 1
+#if defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE
+#if defined(PATCH_BY_WUBENQI)
+#error Notsupport TARGET_OS_IPHONE && TARGET_OS_IPHONE
+#else
+#define OS_IOS 1
+#endif
+#endif  // defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE
 #elif defined(__linux__)
 #define OS_LINUX 1
-// Use TOOLKIT_GTK on linux if TOOLKIT_VIEWS isn't defined.
-#if !defined(TOOLKIT_VIEWS)
-#define TOOLKIT_GTK
+// include a system header to pull in features.h for glibc/uclibc macros.
+#include <unistd.h>
+#if defined(__GLIBC__) && !defined(__UCLIBC__)
+// we really are using glibc, not uClibc pretending to be glibc
+#define LIBC_GLIBC 1
 #endif
 #elif defined(_WIN32)
 #define OS_WIN 1
 #define TOOLKIT_VIEWS 1
 #elif defined(__FreeBSD__)
 #define OS_FREEBSD 1
-#define TOOLKIT_GTK
 #elif defined(__OpenBSD__)
 #define OS_OPENBSD 1
-#define TOOLKIT_GTK
 #elif defined(__sun)
 #define OS_SOLARIS 1
-#define TOOLKIT_GTK
+#elif defined(__QNXNTO__)
+#define OS_QNX 1
 #else
 #error Please add support for your platform in build/build_config.h
 #endif
@@ -57,17 +87,13 @@
 // more specific macro.
 #if defined(OS_MACOSX) || defined(OS_LINUX) || defined(OS_FREEBSD) ||     \
     defined(OS_OPENBSD) || defined(OS_SOLARIS) || defined(OS_ANDROID) ||  \
-    defined(OS_NACL)
+    defined(OS_NACL) || defined(OS_QNX)
 #define OS_POSIX 1
 #endif
 
-#if defined(OS_POSIX) && !defined(OS_MACOSX) && !defined(OS_ANDROID) && \
-    !defined(OS_NACL)
-#define USE_X11 1  // Use X for graphics.
-#endif
-
 // Use tcmalloc
-#if (defined(OS_WIN) || defined(OS_LINUX)) && !defined(NO_TCMALLOC)
+#if (defined(OS_WIN) || defined(OS_LINUX) || defined(OS_ANDROID)) && \
+    !defined(NO_TCMALLOC)
 #define USE_TCMALLOC 1
 #endif
 
@@ -99,15 +125,26 @@
 #define ARCH_CPU_ARMEL 1
 #define ARCH_CPU_32_BITS 1
 #define ARCH_CPU_LITTLE_ENDIAN 1
-#define WCHAR_T_IS_UNSIGNED 1
+#elif defined(__aarch64__)
+#define ARCH_CPU_ARM_FAMILY 1
+#define ARCH_CPU_ARM64 1
+#define ARCH_CPU_64_BITS 1
+#define ARCH_CPU_LITTLE_ENDIAN 1
 #elif defined(__pnacl__)
 #define ARCH_CPU_32_BITS 1
+#define ARCH_CPU_LITTLE_ENDIAN 1
 #elif defined(__MIPSEL__)
+#if defined(__LP64__)
+#define ARCH_CPU_MIPS64_FAMILY 1
+#define ARCH_CPU_MIPS64EL 1
+#define ARCH_CPU_64_BITS 1
+#define ARCH_CPU_LITTLE_ENDIAN 1
+#else
 #define ARCH_CPU_MIPS_FAMILY 1
 #define ARCH_CPU_MIPSEL 1
 #define ARCH_CPU_32_BITS 1
 #define ARCH_CPU_LITTLE_ENDIAN 1
-#define WCHAR_T_IS_UNSIGNED 0
+#endif
 #else
 #error Please add support for your architecture in build/build_config.h
 #endif
@@ -129,12 +166,6 @@
 #define WCHAR_T_IS_UTF16
 #else
 #error Please add support for your compiler in build/build_config.h
-#endif
-
-#if defined(OS_CHROMEOS)
-// Single define to trigger whether CrOS fonts have BCI on.
-// In that case font sizes/deltas should be adjusted.
-//define CROS_FONTS_USING_BCI
 #endif
 
 #if defined(OS_ANDROID)

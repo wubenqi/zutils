@@ -61,10 +61,10 @@ class BASE_EXPORT SupportsUserData {
 template <typename T>
 class UserDataAdapter : public base::SupportsUserData::Data {
  public:
-  static T* Get(SupportsUserData* supports_user_data, const char* key) {
-   UserDataAdapter* data =
+  static T* Get(SupportsUserData* supports_user_data, const void* key) {
+    UserDataAdapter* data =
       static_cast<UserDataAdapter*>(supports_user_data->GetUserData(key));
-    return static_cast<T*>(data->object_.get());
+    return data ? static_cast<T*>(data->object_.get()) : NULL;
   }
 
   UserDataAdapter(T* object) : object_(object) {}

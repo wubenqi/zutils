@@ -4,17 +4,13 @@
 
 #include "base/win/metro.h"
 
-#include "base/message_loop.h"
-#include "base/string_util.h"
+#include "base/message_loop/message_loop.h"
+#include "base/strings/string_util.h"
 #include "base/win/scoped_comptr.h"
 #include "base/win/windows_version.h"
 
 namespace base {
 namespace win {
-
-namespace {
-bool g_should_tsf_aware_required = false;
-}
 
 HMODULE GetMetroModule() {
   const HMODULE kUninitialized = reinterpret_cast<HMODULE>(1);
@@ -70,52 +66,11 @@ bool IsProcessImmersive(HANDLE process) {
   return false;
 }
 
-bool IsTsfAwareRequired() {
-  // Although this function is equal to IsMetroProcess at this moment,
-  // Chrome for Win7 and Vista may support TSF in the future.
-  return g_should_tsf_aware_required || IsMetroProcess();
-}
-
-void SetForceToUseTsf() {
-  g_should_tsf_aware_required = true;
-
-  // Since Windows 8 Metro mode disables CUAS (Cicero Unaware Application
-  // Support) via ImmDisableLegacyIME API, Chrome must be fully TSF-aware on
-  // Metro mode. For debugging purposes, explicitly call ImmDisableLegacyIME so
-  // that one can test TSF functionality even on Windows 8 desktop mode. Note
-  // that CUAS cannot be disabled on Windows Vista/7 where ImmDisableLegacyIME
-  // is not available.
-  typedef BOOL (* ImmDisableLegacyIMEFunc)();
-  HMODULE imm32 = ::GetModuleHandleA("imm32.dll");
-  if (imm32 == NULL)
-    return;
-
-  ImmDisableLegacyIMEFunc imm_disable_legacy_ime =
-      reinterpret_cast<ImmDisableLegacyIMEFunc>(
-          ::GetProcAddress(imm32, "ImmDisableLegacyIME"));
-
-  if (imm_disable_legacy_ime == NULL) {
-    // Unsupported API, just do nothing.
-    return;
-  }
-
-  if (!imm_disable_legacy_ime()) {
-    DVLOG(1) << "Failed to disable legacy IME.";
-  }
-}
-
 wchar_t* LocalAllocAndCopyString(const string16& src) {
   size_t dest_size = (src.length() + 1) * sizeof(wchar_t);
   wchar_t* dest = reinterpret_cast<wchar_t*>(LocalAlloc(LPTR, dest_size));
   base::wcslcpy(dest, src.c_str(), dest_size);
   return dest;
-}
-
-bool IsTouchEnabled() {
-  //int value = GetSystemMetrics(SM_DIGITIZER);
-  //return value & (NID_READY | NID_INTEGRATED_TOUCH) ==
-  //           (NID_READY | NID_INTEGRATED_TOUCH);
-  return false;
 }
 
 bool IsParentalControlActivityLoggingOn() {

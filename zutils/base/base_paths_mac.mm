@@ -11,17 +11,17 @@
 
 #include "base/base_paths.h"
 #include "base/compiler_specific.h"
-#include "base/file_path.h"
-#include "base/file_util.h"
+#include "base/files/file_path.h"
+#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/mac/foundation_util.h"
 #include "base/path_service.h"
-#include "base/string_util.h"
+#include "base/strings/string_util.h"
 #include "build/build_config.h"
 
 namespace {
 
-void GetNSExecutablePath(FilePath* path) {
+void GetNSExecutablePath(base::FilePath* path) {
   DCHECK(path);
   // Executable path can have relative references ("..") depending on
   // how the app was launched.
@@ -32,19 +32,24 @@ void GetNSExecutablePath(FilePath* path) {
   int rv = _NSGetExecutablePath(WriteInto(&executable_path, executable_length),
                                 &executable_length);
   DCHECK_EQ(rv, 0);
-  *path = FilePath(executable_path);
+
+  // _NSGetExecutablePath may return paths containing ./ or ../ which makes
+  // FilePath::DirName() work incorrectly, convert it to absolute path so that
+  // paths such as DIR_SOURCE_ROOT can work, since we expect absolute paths to
+  // be returned here.
+  *path = base::MakeAbsoluteFilePath(base::FilePath(executable_path));
 }
 
 // Returns true if the module for |address| is found. |path| will contain
 // the path to the module. Note that |path| may not be absolute.
-bool GetModulePathForAddress(FilePath* path,
+bool GetModulePathForAddress(base::FilePath* path,
                              const void* address) WARN_UNUSED_RESULT;
 
-bool GetModulePathForAddress(FilePath* path, const void* address) {
+bool GetModulePathForAddress(base::FilePath* path, const void* address) {
   Dl_info info;
   if (dladdr(address, &info) == 0)
     return false;
-  *path = FilePath(info.dli_fname);
+  *path = base::FilePath(info.dli_fname);
   return true;
 }
 
@@ -52,7 +57,7 @@ bool GetModulePathForAddress(FilePath* path, const void* address) {
 
 namespace base {
 
-bool PathProviderMac(int key, FilePath* result) {
+bool PathProviderMac(int key, base::FilePath* result) {
   switch (key) {
     case base::FILE_EXE:
       GetNSExecutablePath(result);
@@ -65,8 +70,8 @@ bool PathProviderMac(int key, FilePath* result) {
                                                  result);
 #if defined(OS_IOS)
       // On IOS, this directory does not exist unless it is created explicitly.
-      if (success && !file_util::PathExists(*result))
-        success = file_util::CreateDirectory(*result);
+      if (success && !base::PathExists(*result))
+        success = base::CreateDirectory(*result);
 #endif  // defined(OS_IOS)
       return success;
     }
@@ -101,9 +106,6 @@ bool PathProviderMac(int key, FilePath* result) {
 #endif
     case base::DIR_CACHE:
       return base::mac::GetUserDirectory(NSCachesDirectory, result);
-    case base::DIR_HOME:
-      *result = base::mac::NSStringToFilePath(NSHomeDirectory());
-      return true;
     default:
       return false;
   }

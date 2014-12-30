@@ -26,7 +26,18 @@ enum Version {
   VERSION_VISTA,       // Also includes Windows Server 2008.
   VERSION_WIN7,        // Also includes Windows Server 2008 R2.
   VERSION_WIN8,        // Also includes Windows Server 2012.
+  VERSION_WIN8_1,      // Code named Windows Blue
   VERSION_WIN_LAST,    // Indicates error condition.
+};
+
+// A rough bucketing of the available types of versions of Windows. This is used
+// to distinguish enterprise enabled versions from home versions and potentially
+// server versions.
+enum VersionType {
+  SUITE_HOME,
+  SUITE_PROFESSIONAL,
+  SUITE_SERVER,
+  SUITE_LAST,
 };
 
 // A singleton that can be used to query various pieces of information about the
@@ -73,6 +84,7 @@ class BASE_EXPORT OSInfo {
   Version version() const { return version_; }
   // The next two functions return arrays of values, [major, minor(, build)].
   VersionNumber version_number() const { return version_number_; }
+  VersionType version_type() const { return version_type_; }
   ServicePack service_pack() const { return service_pack_; }
   WindowsArchitecture architecture() const { return architecture_; }
   int processors() const { return processors_; }
@@ -90,6 +102,7 @@ class BASE_EXPORT OSInfo {
 
   Version version_;
   VersionNumber version_number_;
+  VersionType version_type_;
   ServicePack service_pack_;
   WindowsArchitecture architecture_;
   int processors_;

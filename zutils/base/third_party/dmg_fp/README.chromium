@@ -17,3 +17,4 @@ List of changes made to original code:
   - made minor changes for -Wextra for Mac build, see mac_wextra.patch
   - crash fix for running with reduced CPU float precision, see
     float_precision_crash.patch and crbug.com/123157
+  - fixed warnings under msvc, see msvc_warnings.patch
