@@ -32,7 +32,8 @@ enum WaitState {
 	NOT_WAITING      = 0,
 	WAITING_ACCEPT   = 1,
 	WAITING_READ     = 3,
-	WAITING_CLOSE    = 4
+  WAITING_WRITE    = 4,
+	WAITING_CLOSE    = 5
 };
 
 int CreateTCPListeningSocket(const std::string& ip, const std::string& port, bool is_numeric_host_address, SOCKET *listen_socket);

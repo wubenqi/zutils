@@ -5,7 +5,7 @@
 // By: wubenqi<wubenqi@gmail.com>
 //
 
-#include "net/teamtalk/teamtalk_packet.h"
+#include "net/codec/teamtalk/teamtalk_packet.h"
 
 #include "base/logging.h"
 

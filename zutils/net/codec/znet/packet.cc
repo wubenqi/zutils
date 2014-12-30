@@ -5,7 +5,7 @@
 // By: wubenqi<wubenqi@gmail.com>
 //
 
-#include "net/znet/packet.h"
+#include "net/codec/znet/packet.h"
 
 #include "base/logging.h"
 

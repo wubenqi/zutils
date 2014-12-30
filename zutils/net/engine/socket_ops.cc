@@ -8,7 +8,7 @@
 #include "net/engine/socket_ops.h"
 
 #include "base/logging.h"
-#include "base/stringprintf.h"
+#include "base/strings/stringprintf.h"
 
 #if defined(OS_WIN)
 #include <ws2tcpip.h>

@@ -27,12 +27,9 @@
 #include<linux/tcp.h>
 #endif
 
-#include "base/eintr_wrapper.h"
-#include "base/message_loop.h"
+#include "base/posix/eintr_wrapper.h"
 #include "base/bind.h"
 #include "base2/base_types.h"
-
-#include "net/engine/reactor.h"
 
 namespace net {
 
@@ -42,27 +39,34 @@ const int kReadBufSize = 4096;
 
 }  // namespace
 
-IOHandler::IOHandler(SOCKET socket, Reactor* reactor/*, IOHandlerDelegate* ih_delegate*/)
-  : socket_(socket)
-  , reactor_(reactor)
-  , ih_call_back_(NULL)
-  , wait_state_(NOT_WAITING)
-  , session_id_(kInvalidSessionID) {
+base::StaticAtomicSequenceNumber IOHandler::g_last_sequence_number_;
 
-    //ih_delegates_.push_back(ih_delegate);
+IOHandler::IOHandler(base::MessageLoop* message_loop, SOCKET socket, Delegate* delegate)
+  : socket_(socket)
+  , message_loop_(message_loop)
+  , delegate_(delegate)
+  , read_wait_state_(NOT_WAITING)
+  , write_wait_state_(NOT_WAITING) {
+
+  DCHECK(message_loop);
+  DCHECK(message_loop->type()==base::MessageLoop::TYPE_CUSTOM);
+
+  io_handler_id_ = g_last_sequence_number_.GetNext();
 }
 
 IOHandler::~IOHandler() {
   CloseSocket(socket_);
 }
 
-int IOHandler::GetReactorID() {
-  return reactor_->GetReactorID();
-}
+// int IOHandler::GetReactorID() {
+//   return reactor_->GetReactorID();
+// }
 
 void IOHandler::CloseSocket(SOCKET s) {
   if (s && s != kInvalidSocket) {
-    UnwatchSocket();
+    // UnwatchSocket();
+    read_watcher_.StopWatchingFileDescriptor();
+    write_watcher_.StopWatchingFileDescriptor();
 #if defined(OS_WIN)
     // Note: don't use CancelIo to cancel pending IO because it doesn't work
     // when there is a Winsock layered service provider.
@@ -81,7 +85,11 @@ void IOHandler::CloseSocket(SOCKET s) {
 
 void IOHandler::Create() {
   AddRef();
-  reactor_->message_loop()->PostTask(FROM_HERE, base::Bind(&IOHandler::OnCreated, base::Unretained(this)));
+  if (message_loop_ == base::MessageLoopForIO2::current()) {
+    OnCreated();
+  } else {
+    message_loop_->PostTask(FROM_HERE, base::Bind(&IOHandler::OnCreated, base::Unretained(this)));
+  }
 }
 
 namespace {
@@ -109,9 +117,9 @@ std::string NetAddressToString(const struct sockaddr* net_address, socklen_t add
 }
 
 void IOHandler::OnCreated() {
-  WatchSocket(WAITING_READ);
-
-  session_id_ = MakeInt64(reactor_->AddIOHandler(this), reactor_->GetReactorID());
+  base::MessageLoopForIO2::current()->WatchFileDescriptor(
+    socket_, true, base::MessageLoopForIO2::WATCH_READ, &read_watcher_, this);
+  read_wait_state_ = WAITING_READ;
 
   struct sockaddr_storage addr_storage;
   socklen_t addr_len = sizeof(addr_storage);
@@ -124,124 +132,89 @@ void IOHandler::OnCreated() {
 
   }
 
-  if (ih_call_back_) {
-    ih_call_back_->OnNewConnection(this);
+  if (delegate_) {
+    delegate_->OnNewConnection(this);
   }
-
-  OnNewConnection();
-
-  //std::list<IOHandlerDelegate *>::iterator it;
-  //for(it=ih_delegates_.begin(); it!=ih_delegates_.end(); ++it) {
-  //	if(*it)
-  //		(*it)->OnNewConnection(this);
-  //}
 }
 
 void IOHandler::Close() {
-  //std::list<IOHandlerDelegate *>::iterator it;
-  //for(it=ih_delegates_.begin(); it!=ih_delegates_.end(); ++it) {
-  //	if(*it)
-  //		(*it)->OnConnectionClosed(this);
-  //}
-
-  if (ih_call_back_) {
-    ih_call_back_->OnConnectionClosed(this);
+  if (delegate_) {
+    delegate_->OnConnectionClosed(this);
   }
 
-  OnConnectionClosed();
+  // OnConnectionClosed();
   CloseSocket(socket_);
   socket_ = kInvalidSocket;
 
-  reactor_->Remove(GetLowInt32ByInt64(session_id_));
-  session_id_ = 0;
+  // io_handler_id_ = 0;
   Release();
 }
 
-void IOHandler::Read() {
-  char buf[kReadBufSize + 1];  // +1 for null termination
-  int len;
-  do {
-    len = HANDLE_EINTR(recv(socket_, buf, kReadBufSize, 0));
-    if (len == kSocketError) {
-#if defined(OS_WIN)
-      int err = WSAGetLastError();
-      if (err == WSAEWOULDBLOCK) {
-        LOG(ERROR) << "recv failed: WSAGetLastError()==" << WSAGetLastError();
-#elif defined(OS_POSIX)
-      if (errno == EWOULDBLOCK || errno == EAGAIN) {
-        LOG(ERROR) << "recv failed: WSAGetLastError()==" << errno;
-#endif
+void IOHandler::Read(base::Time recv_time) {
+  DCHECK(base::MessageLoopForIO2::current() == message_loop_);
 
-        break;
-      } else {
-        // TODO(ibrar): some error handling required here
-        Close();
-        break;
-      }
-    } else if (len == 0) {
-      // In Windows, Close() is called by OnObjectSignaled.  In POSIX, we need
-      // to call it here.
+  int saved_errno = 0;
+  uint32 n = read_buf_.ReadFd(socket_, &saved_errno);
+  if (n > 0) {
+    int ret = -1;
+    if (delegate_) {
+      ret = delegate_->OnDataReceived(this, &read_buf_, recv_time);
+    }
+    // int ret = OnDataReceived(buf, len);
+    if (ret!=0) {
       Close();
-      break;
+    }
+  } else if (n == 0) {
+    Close();
+  } else {
+    errno = saved_errno;
+    LOG(ERROR) << "TcpConnection::handleRead";
+    // handleError();
+    Close();
+  }
+}
+
+bool IOHandler::SendData(const void* data, uint32 data_len) {
+  SendData(base::StringPiece(static_cast<const char*>(data), data_len));
+
+  return true;
+}
+
+bool IOHandler::SendData(const base::StringPiece& data) {
+  if (base::MessageLoopForIO2::current() == message_loop_) {
+    SendInternal(data);
+  } else {
+    message_loop_->PostTask(FROM_HERE, base::Bind(&IOHandler::SendInternal2, base::Unretained(this), data.as_string()));
+  }
+  return true;
+}
+
+void IOHandler::SendInternal2(const std::string& data) {
+}
+
+void IOHandler::SendInternal(const base::StringPiece& data) {
+  return SendInternal(data.data(), data.length());
+}
+
+bool IOHandler::SendData(IOBuffer* data) {
+  return true;
+}
+
+void IOHandler::SendInternal(const void* data, uint32 data_len) {
+  uint32 nwrote = 0;
+  size_t remaining = data_len;
+  bool fault_error = false;
+
+  if (!IsWriting() && write_buf_.ReadableBytes() == 0) {
+    nwrote =  HANDLE_EINTR(send(socket_, static_cast<const char*>(data), data_len, 0));
+    if (nwrote >= 0) {
+      remaining = data_len - nwrote;
+      // if (remaining == 0 && writeCompleteCallback_) {
+      //  loop_->queueInLoop(boost::bind(writeCompleteCallback_, shared_from_this()));
+      // }
     } else {
-      // TODO(ibrar): maybe change DidRead to take a length instead
-      DCHECK(len > 0 && len <= kReadBufSize);
-      buf[len] = 0;  // already create a buffer with +1 length
-
-      int ret = OnDataReceived(buf, len);
-      if (ret!=0) {
-        Close();
-        break;
-      }
-
-      // socket_delegate_->DidRead(this, buf, len);
-      /*
-      std::list<IOHandlerDelegate *>::iterator it;
-      for(it=ih_delegates_.begin(); it!=ih_delegates_.end(); ++it) {
-        if(*it) {
-          int ret = (*it)->OnDataReceived(this, buf, len);
-          if (ret!=0) {
-            Close();
-          }
-        }
-      }
-      */
-    }
-  } while (len == kReadBufSize);
-
-
-  /*
-  SendInternal(buf, len+1);
-  Close();
-  */
-}
-
-void IOHandler::AsyncSendIOBuffer(IOBufferPtr io_buffer) {
-  reactor_->message_loop()->PostTask(FROM_HERE, base::Bind(&IOHandler::SendInternal2, base::Unretained(this), io_buffer, io_buffer->data_len()));
-}
-
-void IOHandler::AsyncSend(const char* io_buffer, uint32 io_buffer_len) {
-  scoped_refptr<IOBuffer> data = new IOBuffer(io_buffer_len);
-  memcpy(data->data(), io_buffer, io_buffer_len);
-  reactor_->message_loop()->PostTask(FROM_HERE, base::Bind(&IOHandler::SendInternal2, base::Unretained(this), data, io_buffer_len));
-
-  //reactor_->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(
-  //	this, &IOHandler::SendInternal2, data, io_buffer_len));
-}
-
-void IOHandler::SendInternal2(scoped_refptr<IOBuffer> io_buffer, uint32 io_buffer_len) {
-  SendInternal(io_buffer->data(), io_buffer_len);
-}
-
-void IOHandler::SendInternal(const char* bytes, int len) {
-  char* send_buf = const_cast<char *>(bytes);
-  int len_left = len;
-  while (true) {
-    int sent = HANDLE_EINTR(send(socket_, send_buf, len_left, 0));
-    if (sent == len_left) {  // A shortcut to avoid extraneous checks.
-      break;
-    }
-    if (sent == kSocketError) {
+      // nwrote < 0
+      nwrote = 0;
 #if defined(OS_WIN)
       if (WSAGetLastError() != WSAEWOULDBLOCK) {
         LOG(ERROR) << "send failed: WSAGetLastError()==" << WSAGetLastError();
@@ -249,54 +222,99 @@ void IOHandler::SendInternal(const char* bytes, int len) {
       if (errno != EWOULDBLOCK && errno != EAGAIN) {
         LOG(ERROR) << "send failed: errno==" << errno;
 #endif
-        break;
+        fault_error = true;
       }
-      // Otherwise we would block, and now we have to wait for a retry.
-      // Fall through to PlatformThread::YieldCurrentThread()
-    } else {
-      // sent != len_left according to the shortcut above.
-      // Shift the buffer start and send the remainder after a short while.
-      send_buf += sent;
-      len_left -= sent;
     }
-    base::PlatformThread::YieldCurrentThread();
+  }
+
+  DCHECK(remaining <= data_len);
+  if (!fault_error && remaining > 0) {
+    size_t old_len = write_buf_.ReadableBytes();
+//     if (old_len + remaining >= highWaterMark_
+//       && oldLen < highWaterMark_
+//       && highWaterMarkCallback_)
+//     {
+//       loop_->queueInLoop(boost::bind(highWaterMarkCallback_, shared_from_this(), oldLen + remaining));
+//     }
+    write_buf_.Append(static_cast<const char*>(data)+nwrote, remaining);
+    if (!IsWriting()) {
+      // channel_->enableWriting();
+      base::MessageLoopForIO2::current()->WatchFileDescriptor(
+        socket_, true, base::MessageLoopForIO2::WATCH_WRITE, &write_watcher_, this);
+      // writing_ = true;
+      write_wait_state_ = WAITING_WRITE;
+    }
+  }
+
+  
+//     char* send_buf = const_cast<char *>(bytes);
+//   int len_left = len;
+//   while (true) {
+//     int sent = HANDLE_EINTR(send(socket_, send_buf, len_left, 0));
+//     if (sent == len_left) {  // A shortcut to avoid extraneous checks.
+//       break;
+//     }
+//     if (sent == kSocketError) {
+// #if defined(OS_WIN)
+//       if (WSAGetLastError() != WSAEWOULDBLOCK) {
+//         LOG(ERROR) << "send failed: WSAGetLastError()==" << WSAGetLastError();
+// #elif defined(OS_POSIX)
+//       if (errno != EWOULDBLOCK && errno != EAGAIN) {
+//         LOG(ERROR) << "send failed: errno==" << errno;
+// #endif
+//         break;
+//       }
+//       // Otherwise we would block, and now we have to wait for a retry.
+//       // Fall through to PlatformThread::YieldCurrentThread()
+//     } else {
+//       // sent != len_left according to the shortcut above.
+//       // Shift the buffer start and send the remainder after a short while.
+//       send_buf += sent;
+//       len_left -= sent;
+//     }
+//     base::PlatformThread::YieldCurrentThread();
+//   }
+}
+
+void IOHandler::OnWrite() {
+  if (IsWriting()) {
+    int n =  HANDLE_EINTR(send(socket_, write_buf_.Peek(), write_buf_.ReadableBytes(), 0));
+    if (n > 0) {
+      write_buf_.Retrieve(n);
+      if (write_buf_.ReadableBytes() == 0) {
+        write_watcher_.StopWatchingFileDescriptor();
+        write_wait_state_ = NOT_WAITING;
+//         if (writeCompleteCallback_)
+//         {
+//           loop_->queueInLoop(boost::bind(writeCompleteCallback_, shared_from_this()));
+//         }
+//         if (state_ == kDisconnecting)
+//         {
+//           shutdownInLoop();
+//         }
+      }
+    } else {
+      LOG(ERROR) << "TcpConnection::OnWrite";
+    }
+  } else {
+    LOG(ERROR) << "Connection fd = " << socket_ << " is down, no more writing";
   }
 }
-
-void IOHandler::Send(const char* bytes, int len) {
-  SendInternal(bytes, len);
-}
-
-void IOHandler::Send(const std::string& str) {
-  SendInternal(str.data(), static_cast<int>(str.length()));
-}
-
-void IOHandler::UnwatchSocket() {
-  watcher_.StopWatchingFileDescriptor();
-}
-
-void IOHandler::WatchSocket(WaitState state) {
-  // Implicitly calls StartWatchingFileDescriptor().
-  MessageLoopForIO::current()->WatchFileDescriptor(
-    socket_, true, MessageLoopForIO::WATCH_READ, &watcher_, this);
-  wait_state_ = state;
-}
-
 
 void IOHandler::OnFileCanReadWithoutBlocking(int fd) {
-  if (wait_state_ == WAITING_READ) {
-    Read();
-  }
-  if (wait_state_ == WAITING_CLOSE) {
+  if (read_wait_state_ == WAITING_READ) {
+    base::Time recv_time = base::Time::Now();
+    Read(recv_time);
+  } else if (read_wait_state_ == WAITING_CLOSE) {
     // Close() is called by Read() in the Linux case.
     // TODO(erikkay): this seems to get hit multiple times after the close
   }
 }
 
 void IOHandler::OnFileCanWriteWithoutBlocking(int fd) {
-  // MessagePumpLibevent callback, we don't listen for write events
-  // so we shouldn't ever reach here.
-  NOTREACHED();
+  if (write_wait_state_ == WAITING_WRITE) {
+    OnWrite();
+  }
 }
 
 

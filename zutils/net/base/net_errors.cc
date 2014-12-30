@@ -5,7 +5,7 @@
 #include "net/base/net_errors.h"
 
 #include "base/basictypes.h"
-#include "base/stringize_macros.h"
+#include "base/strings/stringize_macros.h"
 
 namespace net {
 

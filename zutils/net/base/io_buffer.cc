@@ -2,42 +2,65 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// 原始出处：
+// https://github.com/chenshuo/muduo/blob/master/muduo/net/Buffer.cc
+
 #include "net/base/io_buffer.h"
 
 #include "base/logging.h"
+#include "base/posix/eintr_wrapper.h"
 
 namespace net {
 
-IOBuffer::IOBuffer()
-  : data_(NULL)
-  , data_len_(0)
-  , is_new_(false) {
-}
+const char IOBuffer::kCRLF[] = "\r\n";
 
-IOBuffer::IOBuffer(int data_len) {
-  DCHECK(data_len > 0);
-  data_ = new char[data_len];
-  data_len_ = data_len;
-  is_new_ = true;
-}
+// const size_t IOBuffer::kCheapPrepend;
+// const size_t IOBuffer::kInitialSize;
 
-IOBuffer::IOBuffer(char* data, int data_len, bool is_new) {
-  DCHECK(data_len > 0);
-  DCHECK(data);
-  data_len_ = data_len;
-  is_new_ = is_new;
-  if (is_new) {
-    data_ = new char[data_len];
-    memcpy(data_, data, data_len);
+uint32 IOBuffer::ReadFd(int fd, int* saved_errno) {
+#if defined(OS_WIN)
+  char buf[65536];  // +1 for null termination
+  int n = HANDLE_EINTR(recv(fd, buf, 65536, 0));
+  if (n > 0) {
+    if (n == 65536) {
+      // ???
+      LOG(ERROR) << "impossible!!!!";
+    } else {
+      Append(buf, n);
+    }
   } else {
-    data_ = data;
+    *saved_errno = n;
   }
+  return n;
+#else
+  // saved an ioctl()/FIONREAD call to tell how much to read
+  char extrabuf[65536];
+  struct iovec vec[2];
+  const size_t writable = WritableBytes();
+  vec[0].iov_base = Begin()+writer_index_;
+  vec[0].iov_len = writable;
+  vec[1].iov_base = extrabuf;
+  vec[1].iov_len = sizeof extrabuf;
+  // when there is enough space in this buffer, don't read into extrabuf.
+  // when extrabuf is used, we read 128k-1 bytes at most.
+  const int iovcnt = (writable < sizeof extrabuf) ? 2 : 1;
+  const ssize_t n = sockets::readv(fd, vec, iovcnt);
+  if (n < 0) {
+    *saved_errno = errno;
+  } else if (implicit_cast<size_t>(n) <= writable) {
+    writer_index_ += n;
+  } else {
+    writer_index_ = buffer_.size();
+    Append(extrabuf, n - writable);
+  }
+  // if (n == writable + sizeof extrabuf)
+  // {
+  //   goto line_30;
+  // }
+  return n;
+#endif
+
 }
 
-IOBuffer::~IOBuffer() {
-  if (is_new_) {
-    delete[] data_;
-  }
-}
 
 }  // namespace net

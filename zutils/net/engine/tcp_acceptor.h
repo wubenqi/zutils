@@ -7,25 +7,23 @@
 
 #ifndef NET_ENGINE_TCP_ACCEPTOR_H_
 #define NET_ENGINE_TCP_ACCEPTOR_H_
-#pragma once
 
 #include "net/engine/socket_ops.h"
-#include "base/message_loop.h"
-#include "base/memory/ref_counted.h"
-
-#include "net/engine/io_handler_factory.h"
+#include "net/message_loop/message_loop_for_io2.h"
 
 namespace net {
 
 class NetEngineManager;
 class Reactor;
-class TCPAcceptor :
-	public base::RefCountedThreadSafe<TCPAcceptor>,
-	public MessageLoopForIO::Watcher {
+class TCPAcceptor : public base::MessageLoopForIO2::Watcher {
 public:
-	explicit TCPAcceptor(NetEngineManager* engine_manager, IOHandlerFactory* ih_factory = NULL, void* user_data = NULL/*, IOHandler::IOHandlerDelegate* ih_delegate = NULL*/);
-	~TCPAcceptor() {
-	}
+  class Delegate {
+  public:
+    virtual bool OnCreateConnection(SOCKET s) { return false; }
+  };
+
+  explicit TCPAcceptor(base::MessageLoop* message_loop, Delegate* delegate);
+	~TCPAcceptor();
 
 	bool Create(const std::string& ip, const std::string& port, bool is_numeric_host_address);
 
@@ -42,22 +40,17 @@ protected:
 
 	WaitState wait_state_;
 	// The socket's libevent wrapper
-	MessageLoopForIO::FileDescriptorWatcher watcher_;
+  base::MessageLoopForIO2::FileDescriptorWatcher watcher_;
 	// Called by MessagePumpLibevent2 when the socket is ready to do I/O
 	virtual void OnFileCanReadWithoutBlocking(int fd);
 	virtual void OnFileCanWriteWithoutBlocking(int fd);
 
 private:
-	Reactor* reactor_;
+	// Reactor* reactor_;
 	SOCKET acceptor_;
-	NetEngineManager* engine_manager_;
-	//IOHandler::IOHandlerDelegate* ih_delegate_;
-	IOHandlerFactory* ih_factory_;
-  void* user_data_;
-
+  base::MessageLoop* message_loop_;
+  Delegate* delegate_;
 };
-
-typedef scoped_refptr<TCPAcceptor> TCPAcceptorPtr;
 
 }
 

@@ -7,28 +7,26 @@
 
 #ifndef NET_ENGINE_TCP_CONNECTOR_H_
 #define NET_ENGINE_TCP_CONNECTOR_H_
-#pragma once
 
+#include "net/message_loop/message_loop_for_io2.h"
 #include "net/engine/socket_ops.h"
-#include "base/message_loop.h"
-#include "base/memory/ref_counted.h"
 
 #include "net/base/io_buffer.h"
 #include "net/engine/io_handler.h"
 
-#include "net/engine/io_handler_factory.h"
-#include "net/engine/io_handler.h"
-
 namespace net {
 
-class NetEngineManager;
-class Reactor;
+// class NetEngineManager;
 
-class TCPConnector :
-	public base::RefCountedThreadSafe<TCPConnector>,
-	public MessageLoopForIO::Watcher,
-	public IOHandler::IOHandlerCallBack {
+//线程安全
+class TCPConnector: public base::MessageLoopForIO2::Watcher {
 public:
+  class Delegate {
+  public:
+    virtual bool OnCreateConnection(SOCKET s) { return false; }
+    virtual bool OnDestroyConnection() { return false; }
+  };
+
   struct ConnAddrInfo {
     ConnAddrInfo()
       : is_inited(false)
@@ -50,81 +48,86 @@ public:
     bool is_reconnect;
     int reconnect_time;
   };
-
-	class TCPConnectorDelegate {
-	public:
-		virtual ~TCPConnectorDelegate() {}
-		virtual void OnConnectedError(TCPConnector *conn, int err_code) {}
-		virtual int OnNewConnection(TCPConnector *conn) { return 0; }
-		virtual int OnConnectionClosed(TCPConnector *conn) { return 0; }
-	};
-
-	explicit TCPConnector(NetEngineManager* engine_manager, IOHandlerFactory* ih_factory = NULL, void* user_data = NULL, TCPConnectorDelegate* conn_delegate = NULL/*, IOHandler::IOHandlerDelegate* ih_delegate=NULL*/);
+  explicit TCPConnector(base::MessageLoop* message_loop, Delegate* delegate);
 	virtual ~TCPConnector() {
 	}
 
   // 同步发起连接请求
-	bool Connect(const std::string& ip, const std::string& port, bool is_numeric_host_address, bool is_reconnect = false, int reconnect_time = 10);
-  void DoReconnect(int reconnect_time);
+  // 线程安全
+	bool Connect(const std::string& ip, const std::string& port, bool is_numeric_host_address);//, bool is_reconnect = false, int reconnect_time = 10);
+  // bool IsConnected();
+  bool DisConnect();
 
-	IOHandler* Attach(SOCKET connector);
-
-	//bool Send(const char* data, int len);
-  void AsyncSendIOBuffer(IOBufferPtr io_buffer);
-
-	bool DisConnect();
-	bool IsConnected();
-
-	inline Reactor* GetReactor() { return reactor_; }
-	inline IOHandler* GetIOHandler() { return io_handler_; }
+  // 非线程安全
+  void DoClose(bool from_me);
 
 protected:
-  bool Connect(const ConnAddrInfo& conn_addr_info, bool is_sync);
-  // 异步重连
+  void DoConnect(int reconnect_time);
   void ReConnect();
-
-	// 实现 IOHandler::IOHandlerCallBack 接口
-	virtual int OnNewConnection(IOHandler *ih);
-	virtual int OnConnectionClosed(IOHandler *ih);
-  void OnAsyncSendIOBuffer(IOBufferPtr io_buffer);
 
 	// 
 	void OnConnecting();
 	void OnConnected();
 	void OnDisConnect();
 
-	WaitState wait_state_;
-	// The socket's libevent wrapper
-	MessageLoopForIO::FileDescriptorWatcher watcher_;
-	// Called by MessagePumpLibevent2 when the socket is ready to do I/O
+  // 进行回调
+  void OnNewConnection(SOCKET s);
+
 	virtual void OnFileCanReadWithoutBlocking(int fd);
 	virtual void OnFileCanWriteWithoutBlocking(int fd);
+
+  WaitState wait_state_;
+  // The socket's libevent wrapper
+  base::MessageLoopForIO2::FileDescriptorWatcher watcher_;
+  // Called by MessagePumpLibevent2 when the socket is ready to do I/O
 
 private:
 	// State machine for connecting the socket.
 	enum ConnectState {
-		CONNECT_STATE_CONNECT,
-		CONNECT_STATE_CONNECT_COMPLETE,
-		CONNECT_STATE_NONE,
+    kConnectStateInvalid = 0,       // 未连接
+    kConnectStateConnecting,        // 正在连接
+		kConnectStateConnectComplete,   // 连接成功，但未初始化
+		kConnectStateConnected,         // 连接成功，可以开始收发数据
 	};
 
-	// The next state for the Connect() state machine.
-	ConnectState connect_state_;
+  ConnectState GetConnectState() const {
+    base::AutoLock lock(lock_);
+    return connect_state_;
+  }
 
-	SOCKET connector_;
-	Reactor* reactor_;
-	NetEngineManager* engine_manager_;
-	//IOHandler::IOHandlerDelegate* ih_delegate_;
-	TCPConnectorDelegate* conn_delegate_;
-	IOHandler* io_handler_;
+  void SetConnState(ConnectState state) {
+    base::AutoLock lock(lock_);
+    connect_state_ = state;
+  }
 
-	IOHandlerFactory* ih_factory_;
+  bool IsConnectInvalidState() const {
+    base::AutoLock lock(lock_);
+    return connect_state_ == kConnectStateInvalid;
+  }
+
+  bool IsConnectedState() const {
+    base::AutoLock lock(lock_);
+    return connect_state_ == kConnectStateConnected;
+  }
+
+  bool IsConnectingState() const {
+    base::AutoLock lock(lock_);
+    return connect_state_ == kConnectStateConnecting;
+  }
+
+  base::MessageLoop* message_loop_;
+  TCPConnector::Delegate* delegate_;
 
   ConnAddrInfo conn_addr_info_;
-  void* user_data_;
+
+  mutable base::Lock lock_;
+  // The next state for the Connect() state machine.
+  ConnectState connect_state_;
+
+  SOCKET connector_;
+
 };
 
-typedef scoped_refptr<TCPConnector> TCPConnectorPtr;
 }
 
 #endif

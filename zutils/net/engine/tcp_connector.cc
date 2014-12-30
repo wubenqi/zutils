@@ -7,14 +7,11 @@
 
 #include "net/engine/tcp_connector.h"
 
-#include "base/message_loop.h"
+//#include "base/message_loop/message_loop.h"
 #include "base/bind.h"
 
 #include "net/base/net_errors.h"
-#include "net/engine/reactor.h"
-#include "net/engine/net_engine_manager.h"
-
-#include "net/engine/default_io_handler_factory.h"
+//#include "net/engine/net_engine_manager.h"
 
 #if defined(OS_WIN)
 #include <ws2tcpip.h>
@@ -91,212 +88,99 @@ int MapConnectError(int os_error) {
 #endif
 }
 
+TCPConnector::TCPConnector(base::MessageLoop* message_loop, TCPConnector::Delegate* delegate)	:
+  connect_state_(kConnectStateInvalid),
+  connector_(kInvalidSocket),
+  message_loop_(message_loop),
+  delegate_(delegate) {
+	
+	DCHECK(message_loop);
+  DCHECK(message_loop->type()==base::MessageLoop::TYPE_CUSTOM);
 
-TCPConnector::TCPConnector(NetEngineManager* engine_manager, IOHandlerFactory* ih_factory, void* user_data, TCPConnectorDelegate* conn_delegate/*, IOHandler::IOHandlerDelegate* ih_delegate*/)	
-	: engine_manager_(engine_manager)
-	, ih_factory_(ih_factory)
-	, conn_delegate_(conn_delegate)
-	//, ih_delegate_(ih_delegate)
-	, connector_(kInvalidSocket)
-	, connect_state_(CONNECT_STATE_NONE)
-	, io_handler_(NULL)
-  , user_data_(user_data) {
-	
-	DCHECK(engine_manager);
-	if (ih_factory==NULL) {
-		//ih_factory_ = DefaultIOHandlerFactory::GetInstance();
-	}
-	
-	reactor_ = engine_manager->GetReactor();
+  DCHECK(delegate);
 }
 
-bool TCPConnector::Connect(const ConnAddrInfo& conn_addr_info, bool is_sync) {
+void TCPConnector::ReConnect() {
+  // 异步连接
+  int ret = CreateTCPConnectedSocket(conn_addr_info_.ip, conn_addr_info_.port, conn_addr_info_.is_numeric_host_address, &connector_);
+  if ( ret == -1 ) {
+    LOG(ERROR) << "Unable to connect host for: ret = " << ret
+      << ": " << conn_addr_info_.ip << ":"
+      << conn_addr_info_.port;
+    return;
+  }
+
+  if (ret==1) {
+    OnNewConnection(connector_);
+    // HandleConnectCompleted();
+    return;
+  }
+
+  SetConnState(kConnectStateConnecting);
+  OnConnecting();
+}
+
+bool TCPConnector::Connect(const std::string& ip, const std::string& port, bool is_numeric_host_address) {
   // 状态不合法
-  if(connect_state_!=CONNECT_STATE_NONE) {
+  if(GetConnectState()!=kConnectStateInvalid) {
     return false;
   }
 
-  if (is_sync) {
-    // 同步连接
-    if(CreateBlockingTCPConnectedSocket(conn_addr_info.ip, conn_addr_info.port, conn_addr_info.is_numeric_host_address, &connector_)) {
-      //connect_state_ = CONNECT_STATE_CONNECT_COMPLETE;
-      scoped_refptr<IOHandler> ih = ih_factory_->CreateIOHandler(connector_, reactor_/*, ih_delegate_*/);
-      ih->SetUserData(user_data_);
-      //ih->AddIOHandlerDelegate(this);
-      ih->Create();
-      return true;
-    } else {
-      //if (conn_addr_info.is_reconnect) {
-      //  reactor_->message_loop()->PostTask(FROM_HERE, base::Bind(&TCPConnector::OnConnecting, base::Unretained(this)));
-
-      //  //GetReactor()->GetTimer()->Start(FROM_HERE, base::TimeDelta::FromSeconds(conn_addr_info.reconnect_time), base::Bind(&TCPConnector::ReConnect, base::Unretained(this)));
-      //  return true;
-      //}
-      return false;
-    }
-  } else {
-    // 异步连接
-    int ret = CreateTCPConnectedSocket(conn_addr_info.ip, conn_addr_info.port, conn_addr_info.is_numeric_host_address, &connector_);
-    if ( ret == -1 ) {
-      LOG(ERROR) << "Unable to connect host for: ret = " << ret
-        << ": " << conn_addr_info.ip << ":"
-        << conn_addr_info.port;
-      return false;
-    }
-
-    if (ret==1) {
-      //connect_state_ = CONNECT_STATE_CONNECT_COMPLETE;
-      scoped_refptr<IOHandler> ih = ih_factory_->CreateIOHandler(connector_, reactor_/*, ih_delegate_*/);
-      ih->SetUserData(user_data_);
-      //ih->AddIOHandlerDelegate(this);
-      ih->Create();
-      return true;
-    }
-
-    connect_state_ = CONNECT_STATE_CONNECT;
-    reactor_->message_loop()->PostTask(FROM_HERE, base::Bind(&TCPConnector::OnConnecting, base::Unretained(this)));
-  }
-
-  return true;
-}
-
-bool TCPConnector::Connect(const std::string& ip, const std::string& port, bool is_numeric_host_address, bool is_reconnect, int reconnect_time) {
   // 缓存ConnAddrInfo,为了断线重连
-
   conn_addr_info_.is_inited = true;
   conn_addr_info_.ip = ip;
   conn_addr_info_.port = port;
   conn_addr_info_.is_numeric_host_address = is_numeric_host_address;
-  conn_addr_info_.is_reconnect = is_reconnect;
-  conn_addr_info_.reconnect_time = reconnect_time;
+  conn_addr_info_.is_reconnect = true;
+  conn_addr_info_.reconnect_time = 10;
 
-  bool result = Connect(conn_addr_info_, false);
-  if (result == false) {
-    reactor_->message_loop()->PostTask(FROM_HERE, base::Bind(&TCPConnector::DoReconnect, base::Unretained(this), reconnect_time));
+  DoConnect(0);
+//   bool result = Connect(conn_addr_info_, false);
+//   if (result == false) {
+//     DoReconnect(reconnect_time);
+//     // message_loop_->PostDelayedTask(FROM_HERE, base::Bind(&TCPConnector::ReConnect, base::Unretained(this), base::TimeDelta::FromSeconds(reconnect_time)));
+//   }
+  return true;
+}
+
+void TCPConnector::DoConnect(int reconnect_time) {
+  if (reconnect_time == 0) {
+    message_loop_->PostTask(FROM_HERE, base::Bind(&TCPConnector::ReConnect, base::Unretained(this)));
+  } else {
+    message_loop_->PostDelayedTask(FROM_HERE, base::Bind(&TCPConnector::ReConnect, base::Unretained(this)), base::TimeDelta::FromSeconds(reconnect_time));
   }
-  
-  return result;
 }
 
-void TCPConnector::DoReconnect(int reconnect_time) {
-  GetReactor()->GetTimer()->Start(FROM_HERE, base::TimeDelta::FromSeconds(reconnect_time), base::Bind(&TCPConnector::ReConnect, base::Unretained(this)));
-}
-
-void TCPConnector::ReConnect() {
-  if (conn_addr_info_.is_inited) {
-    Connect(conn_addr_info_, false);
-  }
-}
-
-IOHandler* TCPConnector::Attach(SOCKET connector) {
-	if(connect_state_!=CONNECT_STATE_NONE || connector_!=kInvalidSocket) {
-		return NULL;
-	}
-	connector_ = connector;
-	scoped_refptr<IOHandler> ih = ih_factory_->CreateIOHandler(connector_, reactor_/*, ih_delegate_*/);
-	ih->SetIOHandlerCallBack(this);
-  ih->SetUserData(user_data_);
-	//ih->AddIOHandlerDelegate(this);
-	ih->Create();
-	// io_handler_ = ih.get();
-	// connect_state_ = CONNECT_STATE_CONNECT_COMPLETE;
-	return ih.get();
-}
-
-//bool TCPConnector::Send(const char* data, int len) {
-//	if (!IsConnected()) {
-//		return false;
-//	}
-//	io_handler_->AsyncSend(data, len);
-//	return true;
-//}
-
-void TCPConnector::AsyncSendIOBuffer(IOBufferPtr io_buffer) {
-  GetReactor()->message_loop()->PostTask(FROM_HERE, base::Bind(&TCPConnector::OnAsyncSendIOBuffer, base::Unretained(this), io_buffer));
-}
-
-void TCPConnector::OnAsyncSendIOBuffer(IOBufferPtr io_buffer) {
-	if (IsConnected()) {
-    io_handler_->AsyncSendIOBuffer(io_buffer);
-	}
-}
-
-bool TCPConnector::IsConnected() { 
-	return io_handler_!=NULL && connect_state_==CONNECT_STATE_CONNECT_COMPLETE;
-}
-
-int TCPConnector::OnNewConnection(IOHandler *ih) {
-	int ret = 0;
-	io_handler_ = ih;
-	connect_state_ = CONNECT_STATE_CONNECT_COMPLETE;
-
-  if (conn_delegate_) {
-    conn_delegate_->OnNewConnection(this);
-  }
-	return ret;
-}
-
-/*
-int TCPConnector::OnDataReceived(IOHandler *ih, const char* data, int len) {
-	int ret = 0;
-	//if (ih_delegate_) {
-	//	ret = ih_delegate_->OnDataReceived(ih, data, len);
-	//}
-	return ret;
-}
-*/
-
-int TCPConnector::OnConnectionClosed(IOHandler *ih) {
-  if (conn_delegate_) {
-    conn_delegate_->OnConnectionClosed(this);
-  }
-
-	int ret = 0;
-	io_handler_ = NULL;
-  connector_ = kInvalidSocket;
-	connect_state_ = CONNECT_STATE_NONE;
-
-  if (conn_addr_info_.is_reconnect) {
-    DoReconnect(conn_addr_info_.reconnect_time);
-  }
-  
-	return ret;
-}
-
-void TCPConnector::OnDisConnect() {
-	if (io_handler_) {
-		IOHandler* ih = io_handler_;
-		ih->Close();
-	} else {
-		if (connector_ != kInvalidSocket) {
+void TCPConnector::DoClose(bool from_me) {
+  if (from_me) {
+    if (!delegate_->OnDestroyConnection()) {
 #if defined(OS_WIN)
-			// Note: don't use CancelIo to cancel pending IO because it doesn't work
-			// when there is a Winsock layered service provider.
+      // Note: don't use CancelIo to cancel pending IO because it doesn't work
+      // when there is a Winsock layered service provider.
 
-			// In most socket implementations, closing a socket results in a graceful
-			// connection shutdown, but in Winsock we have to call shutdown explicitly.
-			// See the MSDN page "Graceful Shutdown, Linger Options, and Socket Closure"
-			// at http://msdn.microsoft.com/en-us/library/ms738547.aspx
-			shutdown(connector_, SD_SEND);
-			closesocket(connector_);
+      // In most socket implementations, closing a socket results in a graceful
+      // connection shutdown, but in Winsock we have to call shutdown explicitly.
+      // See the MSDN page "Graceful Shutdown, Linger Options, and Socket Closure"
+      // at http://msdn.microsoft.com/en-us/library/ms738547.aspx
+      shutdown(connector_, SD_SEND);
+      closesocket(connector_);
 #elif defined(OS_POSIX)
-			close(connector_);
+      close(connector_);
 #endif
-			connector_ = kInvalidSocket;
-			connect_state_ = CONNECT_STATE_NONE;
-		}
-	}
+    }
+  }
+
+  connector_ = kInvalidSocket;
+  SetConnState(kConnectStateInvalid);
 }
 
 bool TCPConnector::DisConnect() {
-	if (connect_state_!=CONNECT_STATE_CONNECT_COMPLETE || connector_==kInvalidSocket) {
+	if (!IsConnectInvalidState()) {
+    LOG(ERROR) << "DisConnect error!! state is error: " << connect_state_;
 		return false;
 	}
 	
-	//reactor_->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(
-	//	this, &TCPConnector::OnDisConnect));
-
- reactor_->message_loop()->PostTask(FROM_HERE, base::Bind(&TCPConnector::OnDisConnect, this));
+  message_loop_->PostTask(FROM_HERE, base::Bind(&TCPConnector::DoClose, base::Unretained(this), true));
 
 	return true;
 }
@@ -306,16 +190,16 @@ void TCPConnector::OnConnecting() {
 	// for its completion.
 
 #if defined(OS_WIN)
-	if (!MessageLoopForIO::current()->WatchFileDescriptor(
-			connector_, true, MessageLoopForIO::WATCH_READ_WRITE, &watcher_, this)) {
+  if (!base::MessageLoopForIO2::current()->WatchFileDescriptor(
+    connector_, true, base::MessageLoopForIO2::WATCH_READ_WRITE, &watcher_, this)) {
 		// 出错如何处理？？
 		int os_error = 0;
 		os_error = WSAGetLastError();
 		LOG(ERROR) << "WatchFileDescriptor failed: " << FormatLastWSAErrorA(os_error);
 	}
 #else
-	if (!MessageLoopForIO::current()->WatchFileDescriptor(
-			connector_, true, MessageLoopForIO::WATCH_WRITE, &watcher_, this)) {
+  if (!base::MessageLoopForIO2::current()->WatchFileDescriptor(
+    connector_, true, base::MessageLoopForIO2::WATCH_WRITE, &watcher_, this)) {
 		// 出错如何处理？？
 		int os_error = errno;
 		LOG(ERROR) << "WatchFileDescriptor failed: " << strerror(os_error);
@@ -327,8 +211,8 @@ void TCPConnector::OnConnecting() {
 
 void TCPConnector::OnConnected() {
 
-	if (connect_state_ != CONNECT_STATE_CONNECT) {
-		LOG(ERROR) << "state error";
+	if (!IsConnectingState()) {
+    LOG(ERROR) << "state error: " << connect_state_;
 		return;
 	}
 
@@ -361,12 +245,7 @@ void TCPConnector::OnConnected() {
 
 	int result = MapConnectError(os_error);
 	if (result == OK) {
-		scoped_refptr<IOHandler> ih = ih_factory_->CreateIOHandler(connector_, reactor_/*, ih_delegate_*/);
-    ih->SetUserData(user_data_);
-		ih->SetIOHandlerCallBack(this);
-		//ih->AddIOHandlerDelegate(this);
-		ih->Create();
-
+    OnNewConnection(connector_);
 	} else {
 
 #if defined(OS_WIN)
@@ -375,23 +254,27 @@ void TCPConnector::OnConnected() {
 		LOG(ERROR) << "Connect host failed: " << strerror( os_error );
 #endif
 
-		if (conn_delegate_) {
-			conn_delegate_->OnConnectedError(this, result);
-		}
-
     if (conn_addr_info_.is_reconnect) {
-      DoReconnect(conn_addr_info_.reconnect_time);
+      DoConnect(conn_addr_info_.reconnect_time);
     }
 
-		OnDisConnect();
+		DoClose(true);
 	}
+}
+
+// 进行回调
+void TCPConnector::OnNewConnection(SOCKET s) {
+  DCHECK(delegate_);
+  if (delegate_->OnCreateConnection(s)) {
+    SetConnState(kConnectStateConnected);
+  }
 }
 
 void TCPConnector::OnFileCanReadWithoutBlocking(int fd) {
 	// MessagePumpLibevent callback, we don't listen for write events
 	// so we shouldn't ever reach here.
 #if defined(OS_WIN)
-	if (connect_state_ == CONNECT_STATE_CONNECT) {
+	if (IsConnectingState()) {
 		OnConnected();
 	} 
 #else
@@ -400,7 +283,7 @@ void TCPConnector::OnFileCanReadWithoutBlocking(int fd) {
 }
 
 void TCPConnector::OnFileCanWriteWithoutBlocking(int fd) {
-	if (connect_state_ == CONNECT_STATE_CONNECT) {
+	if (IsConnectingState()) {
 		OnConnected();
 	} 
 }

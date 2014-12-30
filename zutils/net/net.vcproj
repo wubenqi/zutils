@@ -150,10 +150,6 @@
 			Name="engine"
 			>
 			<File
-				RelativePath=".\engine\default_io_handler_factory.h"
-				>
-			</File>
-			<File
 				RelativePath=".\engine\io_handler.cc"
 				>
 			</File>
@@ -162,27 +158,19 @@
 				>
 			</File>
 			<File
-				RelativePath=".\engine\io_handler_factory.h"
+				RelativePath=".\engine\reactor_thread.cc"
 				>
 			</File>
 			<File
-				RelativePath=".\engine\io_handler_util.h"
+				RelativePath=".\engine\reactor_thread.h"
 				>
 			</File>
 			<File
-				RelativePath=".\engine\net_engine_manager.cc"
+				RelativePath=".\engine\reactor_thread_pool.cc"
 				>
 			</File>
 			<File
-				RelativePath=".\engine\net_engine_manager.h"
-				>
-			</File>
-			<File
-				RelativePath=".\engine\reactor.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\engine\reactor.h"
+				RelativePath=".\engine\reactor_thread_pool.h"
 				>
 			</File>
 			<File
@@ -202,11 +190,27 @@
 				>
 			</File>
 			<File
+				RelativePath=".\engine\tcp_client.cc"
+				>
+			</File>
+			<File
+				RelativePath=".\engine\tcp_client.h"
+				>
+			</File>
+			<File
 				RelativePath=".\engine\tcp_connector.cc"
 				>
 			</File>
 			<File
 				RelativePath=".\engine\tcp_connector.h"
+				>
+			</File>
+			<File
+				RelativePath=".\engine\tcp_server.cc"
+				>
+			</File>
+			<File
+				RelativePath=".\engine\tcp_server.h"
 				>
 			</File>
 		</Filter>
@@ -219,14 +223,6 @@
 			</File>
 			<File
 				RelativePath=".\base\byte_stream.h"
-				>
-			</File>
-			<File
-				RelativePath=".\base\data_io_buffer.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\base\data_io_buffer.h"
 				>
 			</File>
 			<File
@@ -267,66 +263,74 @@
 			</File>
 		</Filter>
 		<Filter
-			Name="teamtalk"
+			Name="codec"
 			>
 			<File
-				RelativePath=".\teamtalk\teamtalk_io_handler.cc"
+				RelativePath=".\codec\codec_callback.h"
 				>
 			</File>
-			<File
-				RelativePath=".\teamtalk\teamtalk_io_handler.h"
+			<Filter
+				Name="znet"
 				>
-			</File>
-			<File
-				RelativePath=".\teamtalk\teamtalk_io_handler_factory.h"
+				<File
+					RelativePath=".\codec\znet\packet.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\codec\znet\packet.h"
+					>
+				</File>
+				<File
+					RelativePath=".\codec\znet\znet_codec.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\codec\znet\znet_codec.h"
+					>
+				</File>
+				<File
+					RelativePath=".\codec\znet\znet_packet_header.h"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="teamtalk"
 				>
-			</File>
-			<File
-				RelativePath=".\teamtalk\teamtalk_packet.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\teamtalk\teamtalk_packet.h"
-				>
-			</File>
+				<File
+					RelativePath=".\codec\teamtalk\teamtalk_codec.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\codec\teamtalk\teamtalk_codec.h"
+					>
+				</File>
+				<File
+					RelativePath=".\codec\teamtalk\teamtalk_packet.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\codec\teamtalk\teamtalk_packet.h"
+					>
+				</File>
+			</Filter>
 		</Filter>
 		<Filter
-			Name="session"
+			Name="message_loop"
 			>
 			<File
-				RelativePath=".\session\base_session.h"
-				>
-			</File>
-		</Filter>
-		<Filter
-			Name="znet"
-			>
-			<File
-				RelativePath=".\znet\io_handler_util.h"
+				RelativePath=".\message_loop\message_loop_for_io2.cc"
 				>
 			</File>
 			<File
-				RelativePath=".\znet\packet.cc"
+				RelativePath=".\message_loop\message_loop_for_io2.h"
 				>
 			</File>
 			<File
-				RelativePath=".\znet\packet.h"
+				RelativePath=".\message_loop\message_pump_libevent2.cc"
 				>
 			</File>
 			<File
-				RelativePath=".\znet\znet_io_handler.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\znet\znet_io_handler.h"
-				>
-			</File>
-			<File
-				RelativePath=".\znet\znet_io_handler_factory.h"
-				>
-			</File>
-			<File
-				RelativePath=".\znet\znet_packet_header.h"
+				RelativePath=".\message_loop\message_pump_libevent2.h"
 				>
 			</File>
 		</Filter>
