@@ -313,6 +313,18 @@
 					>
 				</File>
 			</Filter>
+			<Filter
+				Name="length_header"
+				>
+				<File
+					RelativePath=".\codec\length_header\length_header_codec.cc"
+					>
+				</File>
+				<File
+					RelativePath=".\codec\length_header\length_header_codec.h"
+					>
+				</File>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="message_loop"
