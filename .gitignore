@@ -41,3 +41,18 @@ Icon
 Network Trash Folder
 Temporary Items
 .apdisk
+
+*.ncb
+zutils/pcap_util/pcap_util.vcproj.WUBENQI26EA.wubenqi.user
+zutils/zutils.suo
+lib/scriptengine2.lib
+lib/pcap_util.lib
+bin/test_netengine.exe
+bin/test_netengine.ilk
+bin/test_netengine.pdb
+lib/base.lib
+lib/base2.lib
+lib/db.lib
+lib/libevent.lib
+lib/message_pdu.lib
+lib/net.lib
