@@ -9,7 +9,6 @@
 
 #ifndef NET_ENGINE_SOCKET_OPS_H_
 #define NET_ENGINE_SOCKET_OPS_H_
-#pragma once
 
 #include "base/basictypes.h"
 

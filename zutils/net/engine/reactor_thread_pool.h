@@ -7,7 +7,6 @@
 
 #ifndef NET_ENGINE_REACROR_THREAD_POOL_H_
 #define NET_ENGINE_REACROR_THREAD_POOL_H_
-#pragma once
 
 #include <vector>
 

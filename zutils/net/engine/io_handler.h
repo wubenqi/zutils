@@ -7,11 +7,10 @@
 
 #ifndef NET_ENGINE_IO_HANDLER_H_
 #define NET_ENGINE_IO_HANDLER_H_
-#pragma once
 
 #include "base/time/time.h"
+#include "base2/any.h"
 
-#include "net/base/net_types.h"
 #include "net/base/io_buffer.h"
 #include "net/engine/socket_ops.h"
 
@@ -50,7 +49,7 @@ public:
 
   bool SendData(const void* data, uint32 data_len);
   bool SendData(const base::StringPiece& data);
-  bool SendData(IOBuffer* data);
+  //bool SendData(IOBuffer* data);
 
   virtual void OnCreated();
   virtual void Close( );
@@ -69,6 +68,18 @@ public:
   // int GetReactorID();
   inline int io_handler_id() const {
     return io_handler_id_;
+  }
+
+  void  SetIOContext(void* ctx) {
+    context_ = ctx;
+  }
+  void* GetIOContext() {
+    return context_;
+  }
+  void* ReleaseIOContext() {
+    void* ctx = context_;
+    context_ = NULL;
+    return ctx;
   }
 
 protected:
@@ -100,6 +111,9 @@ private:
   IOBuffer write_buf_;
 
   int io_handler_id_;
+
+  void* context_;
+
   static base::StaticAtomicSequenceNumber g_last_sequence_number_;
 };
 

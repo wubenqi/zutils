@@ -49,7 +49,7 @@ bool TCPClient::OnDestroyConnection() {
     base::AutoLock lock(lock_);
     ret = io_handler_.get()!=NULL;
   }
-  return false;
+  return ret;
 }
 
 int TCPClient::OnNewConnection(const IOHandlerPtr& ih) {

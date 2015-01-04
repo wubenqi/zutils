@@ -46,7 +46,8 @@ IOHandler::IOHandler(base::MessageLoop* message_loop, SOCKET socket, Delegate* d
   , message_loop_(message_loop)
   , delegate_(delegate)
   , read_wait_state_(NOT_WAITING)
-  , write_wait_state_(NOT_WAITING) {
+  , write_wait_state_(NOT_WAITING)
+  , context_(NULL) {
 
   DCHECK(message_loop);
   DCHECK(message_loop->type()==base::MessageLoop::TYPE_CUSTOM);
@@ -189,15 +190,21 @@ bool IOHandler::SendData(const base::StringPiece& data) {
   return true;
 }
 
+//bool IOHandler::SendData(IOBuffer* data) {
+//  if (base::MessageLoopForIO2::current() == message_loop_) {
+//    SendInternal(data->Peek(), data->ReadableBytes());
+//  } else {
+//    message_loop_->PostTask(FROM_HERE, base::Bind(&IOHandler::SendInternal2, base::Unretained(this), data.as_string()));
+//  }
+//  return true;
+//}
+
 void IOHandler::SendInternal2(const std::string& data) {
+  return SendInternal(data.c_str(), data.length());
 }
 
 void IOHandler::SendInternal(const base::StringPiece& data) {
   return SendInternal(data.data(), data.length());
-}
-
-bool IOHandler::SendData(IOBuffer* data) {
-  return true;
 }
 
 void IOHandler::SendInternal(const void* data, uint32 data_len) {

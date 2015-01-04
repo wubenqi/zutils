@@ -40,19 +40,19 @@ protected:
   virtual int  OnConnectionClosed(const IOHandlerPtr& ih);
 
 private:
-  void OnLoopConnectionClosed(const IOHandlerPtr& ih) {
-    base::hash_map<int, IOHandlerPtr>::iterator it = io_handers_.find(ih->io_handler_id());
-    if (it!=io_handers_.end()) {
-      io_handers_.erase(it);
-    }
-  }
+//   void OnLoopConnectionClosed(const IOHandlerPtr& ih) {
+//     base::hash_map<int, IOHandlerPtr>::iterator it = io_handers_.find(ih->io_handler_id());
+//     if (it!=io_handers_.end()) {
+//       io_handers_.erase(it);
+//     }
+//   }
 
   base::MessageLoop* message_loop_;
   IOHandler::Delegate* io_handler_delegate_;
 
   ReactorThreadPool reactor_pool_;
 
-  base::hash_map<int, IOHandlerPtr> io_handers_;
+//   base::hash_map<int, IOHandlerPtr> io_handers_;
 
   TCPAcceptor acc_;
 

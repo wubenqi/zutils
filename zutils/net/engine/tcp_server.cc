@@ -46,7 +46,7 @@ bool TCPServer::OnCreateConnection(SOCKET s) {
   IOHandlerPtr ih = new IOHandler(message_loop, s, this);
   ih->Create();
 
-  io_handers_.insert(std::make_pair(ih->io_handler_id(), ih));
+//   io_handers_.insert(std::make_pair(ih->io_handler_id(), ih));
 
   return true;
 }
@@ -60,11 +60,11 @@ int TCPServer::OnDataReceived(const IOHandlerPtr& ih, IOBuffer* data, base::Time
 }
 
 int TCPServer::OnConnectionClosed(const IOHandlerPtr& ih) {
-  if (message_loop_ == base::MessageLoopForIO2::current()) {
-    OnLoopConnectionClosed(ih);
-  } else {
-    message_loop_->PostTask(FROM_HERE, base::Bind(&TCPServer::OnLoopConnectionClosed, base::Unretained(this), ih));
-  }
+//   if (message_loop_ == base::MessageLoopForIO2::current()) {
+//     OnLoopConnectionClosed(ih);
+//   } else {
+//     message_loop_->PostTask(FROM_HERE, base::Bind(&TCPServer::OnLoopConnectionClosed, base::Unretained(this), ih));
+//   }
   
   int ret = io_handler_delegate_->OnConnectionClosed(ih);
 
