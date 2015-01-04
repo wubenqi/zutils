@@ -41,8 +41,8 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="../;..\third_party\icu\public\common;..\third_party\icu\public\i18n"
-				PreprocessorDefinitions="_DEBUG;&quot;_WIN32_WINNT=0x0600&quot;;&quot;WINVER=0x0600&quot;;&quot;WIN32&quot;;&quot;_WINDOWS&quot;;&quot;NOMINMAX&quot;;&quot;_CRT_RAND_S&quot;;&quot;CERT_CHAIN_PARA_HAS_EXTRA_FIELDS&quot;;&quot;WIN32_LEAN_AND_MEAN&quot;;&quot;_SECURE_ATL&quot;;&quot;_ATL_NO_OPENGL&quot;;&quot;_HAS_TR1=0&quot;;&quot;_HAS_EXCEPTIONS=0&quot;;&quot;CHROMIUM_BUILD&quot;;&quot;TOOLKIT_VIEWS=1&quot;;&quot;ENABLE_REMOTING=1&quot;;&quot;ENABLE_GPU=1&quot;;&quot;__STD_C&quot;;&quot;_CRT_SECURE_NO_DEPRECATE&quot;;&quot;_SCL_SECURE_NO_DEPRECATE&quot;;&quot;U_STATIC_IMPLEMENTATION&quot;;&quot;NO_NSPR_10_SUPPORT&quot;;&quot;NSS_USE_STATIC_LIBS&quot;;&quot;USE_UTIL_DIRECTLY&quot;;&quot;__STDC_FORMAT_MACROS&quot;;&quot;DYNAMIC_ANNOTATIONS_ENABLED=1&quot;"
+				AdditionalIncludeDirectories="../;..\third_party\icu\public\common;..\third_party\icu\public\i18n;.\thrird_party\http_parser"
+				PreprocessorDefinitions="_DEBUG;LIB;WIN32;&quot;WIN32_LEAN_AND_MEAN&quot;;&quot;NOMINMAX&quot;;&quot;__STD_C&quot;;&quot;_CRT_SECURE_NO_DEPRECATE&quot;;&quot;_SCL_SECURE_NO_DEPRECATE&quot;;&quot;DYNAMIC_ANNOTATIONS_ENABLED=1&quot;"
 				MinimalRebuild="false"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
@@ -50,6 +50,7 @@
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				DebugInformationFormat="3"
+				DisableSpecificWarnings="4351;4396;4503;4819;4100;4121;4125;4127;4130;4131;4189;4201;4238;4244;4245;4310;4355;4428;4481;4505;4510;4512;4530;4610;4611;4701;4702;4706;4554;4018;4102"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -218,6 +219,18 @@
 			Name="base"
 			>
 			<File
+				RelativePath=".\base\address_family.h"
+				>
+			</File>
+			<File
+				RelativePath=".\base\address_list.cc"
+				>
+			</File>
+			<File
+				RelativePath=".\base\address_list.h"
+				>
+			</File>
+			<File
 				RelativePath=".\base\byte_stream.cc"
 				>
 			</File>
@@ -226,11 +239,35 @@
 				>
 			</File>
 			<File
+				RelativePath=".\base\escape.cc"
+				>
+			</File>
+			<File
+				RelativePath=".\base\escape.h"
+				>
+			</File>
+			<File
 				RelativePath=".\base\io_buffer.cc"
 				>
 			</File>
 			<File
 				RelativePath=".\base\io_buffer.h"
+				>
+			</File>
+			<File
+				RelativePath=".\base\ip_endpoint.cc"
+				>
+			</File>
+			<File
+				RelativePath=".\base\ip_endpoint.h"
+				>
+			</File>
+			<File
+				RelativePath=".\base\ip_pattern.cc"
+				>
+			</File>
+			<File
+				RelativePath=".\base\ip_pattern.h"
 				>
 			</File>
 			<File
@@ -250,7 +287,15 @@
 				>
 			</File>
 			<File
-				RelativePath=".\base\net_types.h"
+				RelativePath=".\base\net_util.cc"
+				>
+			</File>
+			<File
+				RelativePath=".\base\net_util.h"
+				>
+			</File>
+			<File
+				RelativePath=".\base\sys_addrinfo.h"
 				>
 			</File>
 			<File
@@ -259,6 +304,14 @@
 			</File>
 			<File
 				RelativePath=".\base\winsock_init.h"
+				>
+			</File>
+			<File
+				RelativePath=".\base\winsock_util.cc"
+				>
+			</File>
+			<File
+				RelativePath=".\base\winsock_util.h"
 				>
 			</File>
 		</Filter>
@@ -343,6 +396,86 @@
 			</File>
 			<File
 				RelativePath=".\message_loop\message_pump_libevent2.h"
+				>
+			</File>
+		</Filter>
+		<Filter
+			Name="util"
+			>
+			<File
+				RelativePath=".\util\time_syncor.h"
+				>
+			</File>
+		</Filter>
+		<Filter
+			Name="third_party"
+			>
+			<Filter
+				Name="http_parser"
+				>
+				<File
+					RelativePath=".\third_party\http_parser\http_parser.c"
+					>
+				</File>
+				<File
+					RelativePath=".\third_party\http_parser\http_parser.h"
+					>
+				</File>
+			</Filter>
+		</Filter>
+		<Filter
+			Name="http"
+			>
+			<File
+				RelativePath=".\http\http_request_codec.cc"
+				>
+			</File>
+			<File
+				RelativePath=".\http\http_request_codec.h"
+				>
+			</File>
+			<File
+				RelativePath=".\http\http_request_context.cc"
+				>
+			</File>
+			<File
+				RelativePath=".\http\http_request_context.h"
+				>
+			</File>
+			<File
+				RelativePath=".\http\http_response_context.cc"
+				>
+			</File>
+			<File
+				RelativePath=".\http\http_response_context.h"
+				>
+			</File>
+			<File
+				RelativePath=".\http\http_server_request_info.cc"
+				>
+			</File>
+			<File
+				RelativePath=".\http\http_server_request_info.h"
+				>
+			</File>
+			<File
+				RelativePath=".\http\http_server_response_info.cc"
+				>
+			</File>
+			<File
+				RelativePath=".\http\http_server_response_info.h"
+				>
+			</File>
+			<File
+				RelativePath=".\http\http_status_code.cc"
+				>
+			</File>
+			<File
+				RelativePath=".\http\http_status_code.h"
+				>
+			</File>
+			<File
+				RelativePath=".\http\http_status_code_list.h"
 				>
 			</File>
 		</Filter>

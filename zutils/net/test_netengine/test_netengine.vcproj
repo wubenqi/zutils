@@ -18,8 +18,8 @@
 	<Configurations>
 		<Configuration
 			Name="Debug|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
+			OutputDirectory="../../../../output/debug/zutils/test_netenginge"
+			IntermediateDirectory="../../../../output/debug/zutils/test_netenginge"
 			ConfigurationType="1"
 			CharacterSet="1"
 			>
@@ -42,13 +42,14 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="../../"
-				PreprocessorDefinitions="_DEBUG;&quot;_WIN32_WINNT=0x0600&quot;;&quot;WINVER=0x0600&quot;;&quot;WIN32&quot;;&quot;_WINDOWS&quot;;&quot;NOMINMAX&quot;;&quot;_CRT_RAND_S&quot;;&quot;CERT_CHAIN_PARA_HAS_EXTRA_FIELDS&quot;;&quot;WIN32_LEAN_AND_MEAN&quot;;&quot;_SECURE_ATL&quot;;&quot;_ATL_NO_OPENGL&quot;;&quot;_HAS_TR1=0&quot;;&quot;_HAS_EXCEPTIONS=0&quot;;&quot;CHROMIUM_BUILD&quot;;&quot;TOOLKIT_VIEWS=1&quot;;&quot;ENABLE_REMOTING=1&quot;;&quot;ENABLE_GPU=1&quot;;&quot;__STD_C&quot;;&quot;_CRT_SECURE_NO_DEPRECATE&quot;;&quot;_SCL_SECURE_NO_DEPRECATE&quot;;&quot;UNIT_TEST&quot;;&quot;__STDC_FORMAT_MACROS&quot;;&quot;DYNAMIC_ANNOTATIONS_ENABLED=1&quot;"
+				PreprocessorDefinitions="_DEBUG;&quot;WIN32&quot;;&quot;WIN32_LEAN_AND_MEAN&quot;;&quot;NOMINMAX&quot;;&quot;__STD_C&quot;;&quot;_CRT_SECURE_NO_DEPRECATE&quot;;&quot;_SCL_SECURE_NO_DEPRECATE&quot;;&quot;DYNAMIC_ANNOTATIONS_ENABLED=1&quot;"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				DebugInformationFormat="4"
+				DisableSpecificWarnings="4355"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -62,6 +63,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="ws2_32.lib dbghelp.lib"
+				OutputFile="..\..\..\bin\$(ProjectName).exe"
 				LinkIncremental="2"
 				GenerateDebugInformation="true"
 				SubSystem="1"

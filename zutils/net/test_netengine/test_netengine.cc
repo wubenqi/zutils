@@ -7,6 +7,12 @@
 
 #include "base/at_exit.h"
 #include "base/threading/platform_thread.h"
+#include "base/logging.h"
+#include "base/bind.h"
+#include "base/files/file_path.h"
+#include "base/base_paths.h"
+#include "base/command_line.h"
+#include "base/path_service.h"
 
 #include "net/base/winsock_init.h"
 #include "net/engine/tcp_client.h"
@@ -15,10 +21,12 @@
 #include "net/message_loop/message_pump_libevent2.h"
 
 #include "net/codec/znet/znet_codec.h"
+#include "net/http/http_request_codec.h"
 
 #include <iostream>
-using namespace net;
 
+using namespace net;
+using namespace base;
 
 class TestServer :
   public net::IOHandler::Delegate {
@@ -150,8 +158,55 @@ private:
   TCPClient conn_; //(new net::TCPAcceptor(&net_engine_manager, &ih)); 
 };
 
+class HttpServerTest : public HttpRequestCodec::Delegate {
+public:
+  HttpServerTest(base::MessageLoop* message_loop)
+    : codec_(this),
+      acc_(message_loop, &codec_) {
+
+      acc_.Create("0.0.0.0", "8000", false);
+  }
+
+  virtual int OnHttpConnection(const IOHandlerPtr& ih) {
+    LOG(INFO) << "OnHttpConnection(): id = " << ih->io_handler_id();
+    return 0;
+  }
+
+  virtual int OnHttpRequest(const IOHandlerPtr& ih, const HttpServerRequestInfo& request, base::Time receive_time) {
+    LOG(INFO) << "OnHttpRequest(): id = " << ih->io_handler_id();
+    codec_.Send500(ih, "tttttttttttttttttt");
+    return 0;
+  }
+
+  virtual int OnHttpConnectionClosed(const IOHandlerPtr& ih) {
+    LOG(INFO) << "OnHttpConnectionClosed(): id = " << ih->io_handler_id();
+    return 0;
+  }
+
+private:
+  HttpRequestCodec codec_;
+  TCPServer acc_; //(new net::TCPAcceptor(&net_engine_manager, &ih)); 
+};
+
+
 int main(int argc, char* argv[]) {
 	base::AtExitManager exit;
+
+  CommandLine::Init(argc, argv);
+  FilePath exe;
+  PathService::Get(base::FILE_EXE, &exe);
+  FilePath log_filename = exe.ReplaceExtension(FILE_PATH_LITERAL("log"));
+  logging::LoggingSettings logging_settings;
+  logging_settings.log_file = log_filename.value().c_str();
+  logging_settings.lock_log = logging::LOCK_LOG_FILE;
+  logging_settings.delete_old = logging::APPEND_TO_OLD_LOG_FILE;
+  logging_settings.logging_dest = logging::LOG_TO_ALL;
+  logging::InitLogging(logging_settings);
+  // We want process and thread IDs because we may have multiple processes.
+  // Note: temporarily enabled timestamps in an effort to catch bug 6361.
+  logging::SetLogItems(false, true, true, true);
+
+  LOG(INFO) << "run...";
 
 	#if defined(OS_WIN)
 	net::EnsureWinsockInit();
@@ -159,18 +214,21 @@ int main(int argc, char* argv[]) {
 
 	// Do work here.
   base::MessageLoop loop(scoped_ptr<base::MessagePumpLibevent2>(new base::MessagePumpLibevent2()));
-	ZNetServerTest server(&loop);
 
-  std::vector<ZNetConTest*> conns;
-  for (size_t i=0; i<10; ++i) {
-    conns.push_back(new ZNetConTest(&loop));
-    // TestConn test_conn(&engine_manager);
-  }
+  HttpServerTest server(&loop);
+	//ZNetServerTest server(&loop);
+
+ // std::vector<ZNetConTest*> conns;
+ // for (size_t i=0; i<10; ++i) {
+ //   conns.push_back(new ZNetConTest(&loop));
+ //   // TestConn test_conn(&engine_manager);
+ // }
 
   base::MessageLoop::current()->Run();
 
-  for (size_t i=0; i<conns.size(); ++i) {
-    delete conns[i];
-  }
+  //for (size_t i=0; i<conns.size(); ++i) {
+  //  delete conns[i];
+  //}
 
+  return 0;
 }
