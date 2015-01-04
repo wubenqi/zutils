@@ -43,7 +43,7 @@ public:
   }
 
   virtual MessageLoop* message_loop() {
-    if (message_loop_ = NULL) {
+    if (message_loop_ == NULL) {
       message_loop_ = new MessageLoop();
     }
     return message_loop_;
