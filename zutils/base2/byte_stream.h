@@ -5,14 +5,13 @@
 // By: wubenqi<wubenqi@gmail.com>
 //
 
-#ifndef NET_BASE_BYTE_STREAM_H_
-#define NET_BASE_BYTE_STREAM_H_
-#pragma once
+#ifndef BASE2_BYTE_STREAM_H_
+#define BASE2_BYTE_STREAM_H_
 
 #include "base/basictypes.h"
 #include <string>
 
-namespace net {
+namespace base {
 
 class ByteStream {
 public:
@@ -30,7 +29,7 @@ public:
 	 * @param pBuffer 数据,应确保至少有dataLen长度
 	 * @param dataLen 数据长度
 	 */
-	ByteStream( const void* pBuffer, uint32 dataLen );
+	ByteStream( const void* buffer, uint32 data_len );
 	
 	virtual ~ByteStream(void);
 
@@ -83,7 +82,7 @@ public:
 	 * @param dataLen 要读出的字节数
 	 * @return 成功返回0
 	 */
-	int32 ReadRawData(void* pdata, uint32 dataLen) const;
+	int32 ReadRawData(void* data, uint32 data_len) const;
 
 	/**
 	 * 写入几个字节
@@ -91,7 +90,7 @@ public:
 	 * @param dataLen 要写入的字节数
 	 * @return 成功返回0
 	 */
-	int32 WriteRawData(const void* pdata, uint32 dataLen);
+	int32 WriteRawData(const void* data, uint32 data_len);
 
 	/**
 	 * 读出一个字符串(以'\0'结尾)
@@ -99,8 +98,8 @@ public:
 	 * @param dataLen 要读出的字节数,包括结尾字符'\0'
 	 * @return 成功返回0
 	 */
-	int32 ReadString(char* pdata, uint32 dataLen) const;
-	int32 ReadString(std::string& data) const;
+	int32 ReadString(char* s, uint32 data_len) const;
+	int32 ReadString(std::string& str) const;
 	const ByteStream& operator >> (std::string& str) const;
 
 	/**
@@ -108,8 +107,8 @@ public:
 	 * @param pdata 要写入的字符串
 	 * @return 成功返回0
 	 */
-	int32 WriteString(const char* pdata);
-	int32 WriteString(const std::string& data);
+	int32 WriteString(const char* s);
+	int32 WriteString(const std::string& str);
 	ByteStream& operator << (const std::string& str);
 
 	/**
@@ -211,10 +210,10 @@ public:
 	const ByteStream& operator >> (uint32& l) const;
 
 	operator bool () const {
-		return 0 == m_failed;
+		return 0 == failed_;
 	}
 	bool operator!() const {
-		return 0 != m_failed;
+		return 0 != failed_;
 	}
 
 
@@ -229,16 +228,16 @@ protected:
 	virtual void  Free();
 
 protected:
-	char*			m_pBuffer;	/**< 实际用于读写的缓冲区 */
-	bool			m_isNew;	/**< m_pBuffer是否是用动态分配的 */
-	uint32	m_maxLen;	/**< 缓冲区的最大长度 */
-	uint32	m_dataLen;	/**< 缓冲区中的数据长度 */
-	mutable  uint32	m_currentPos;	/**< 缓冲区中读写的当前位置 */
-	mutable  uint32	m_failed;	/**< 指示读写操作是否成功 */
+	char*			buffer_;	/**< 实际用于读写的缓冲区 */
+	bool			is_new_;	/**< buffer_是否是用动态分配的 */
+	uint32	max_len_;	/**< 缓冲区的最大长度 */
+	uint32	data_len_;	/**< 缓冲区中的数据长度 */
+	mutable  uint32	current_pos_;	/**< 缓冲区中读写的当前位置 */
+	mutable  uint32	failed_;	/**< 指示读写操作是否成功 */
 	//int m_nMode;
 };
 
-}
+} // namespace base
 
 
 #endif

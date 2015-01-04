@@ -10,8 +10,7 @@
 
 #include "base/basictypes.h"
 #include "base/memory/ref_counted.h"
-
-#include "net/base/byte_stream.h"
+// #include "base2/byte_stream.h"
 
 //接收处理数据包
 class Packet :
@@ -106,7 +105,7 @@ public:
 	Packet* Clone() const;
 
 protected:
-	friend class OutPacketStream;
+	// friend class OutPacketStream;
 	//此构造函数只能在OutByteStream里使用,其它地方使用会出问题
 	Packet(uint16 cmd_type, const void* data, uint32 data_len);
 	Packet(const void* data, uint32 data_len);

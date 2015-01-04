@@ -10,8 +10,7 @@
 
 #include "base/basictypes.h"
 #include "base/memory/ref_counted.h"
-
-#include "net/base/byte_stream.h"
+//#include "base2/byte_stream.h"
 
 //接收处理数据包
 class TeamTalkPacket :

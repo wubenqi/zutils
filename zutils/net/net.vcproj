@@ -231,14 +231,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\base\byte_stream.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\base\byte_stream.h"
-				>
-			</File>
-			<File
 				RelativePath=".\base\escape.cc"
 				>
 			</File>

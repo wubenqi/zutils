@@ -5,28 +5,28 @@
 // By: wubenqi<wubenqi@gmail.com>
 //
 
-#include "net/base/byte_stream.h"
+#include "base2/byte_stream.h"
 
 //#include <stdlib.h>
 
-namespace net {
+namespace base {
 
 ByteStream::ByteStream(void) 
-	: m_isNew( true )
-	, m_maxLen( 0 )
-	, m_dataLen( 0 )
-	, m_currentPos( 0 )
-	, m_failed( 0 )
-	, m_pBuffer( 0 ) {
+	: is_new_( true )
+	, max_len_( 0 )
+	, data_len_( 0 )
+	, current_pos_( 0 )
+	, failed_( 0 )
+	, buffer_( 0 ) {
 }
 
-ByteStream::ByteStream( const void* pBuffer, uint32 dataLen )
-	: m_pBuffer( (char*)pBuffer )
-	, m_isNew( false )
-	, m_maxLen( dataLen )
-	, m_dataLen( dataLen )
-	, m_currentPos( 0 )
-	, m_failed( 0 ) {
+ByteStream::ByteStream( const void* buffer, uint32 data_len )
+	: buffer_( (char*)buffer )
+	, is_new_( false )
+	, max_len_( data_len )
+	, data_len_( data_len )
+	, current_pos_( 0 )
+	, failed_( 0 ) {
 }
 
 ByteStream::~ByteStream( ) {
@@ -34,103 +34,103 @@ ByteStream::~ByteStream( ) {
 }
 
 //////////////////////////////////////////////////////////
-void* ByteStream::Alloc(uint32 dwNewLen) {
-	if (m_failed) return 0;
-	if(!m_isNew) {
-		m_failed = 1;
+void* ByteStream::Alloc(uint32 new_len) {
+	if (failed_) return 0;
+	if(!is_new_) {
+		failed_ = 1;
 		return 0;
 	}
-	if (dwNewLen > m_maxLen) {
+	if (new_len > max_len_) {
 		// determine new buffer size
-		uint32 dwNewBufferSize = m_maxLen;
-		while (dwNewBufferSize < dwNewLen) dwNewBufferSize += 4096;
+		uint32 new_buffer_size = max_len_;
+		while (new_buffer_size < new_len) new_buffer_size += 4096;
 
 		// allocate new buffer
-		if (m_pBuffer == 0) m_pBuffer = (char *)malloc(dwNewBufferSize);
-		else	m_pBuffer = (char *)realloc(m_pBuffer, dwNewBufferSize);
-		if (0==m_pBuffer) {
-			m_failed = 1;
+		if (buffer_ == 0) buffer_ = (char *)malloc(new_buffer_size);
+		else	buffer_ = (char *)realloc(buffer_, new_buffer_size);
+		if (0==buffer_) {
+			failed_ = 1;
 			return 0;
 		}
-		//LOG_ASSERT(m_pBuffer!=NULL);
-		m_maxLen = dwNewBufferSize;
+		//LOG_ASSERT(buffer_!=NULL);
+		max_len_ = new_buffer_size;
 	}
-	return m_pBuffer;
+	return buffer_;
 }
 
 void ByteStream::Free() {
-	if( m_isNew ) {
-		free(m_pBuffer);
-		m_pBuffer = NULL;
+	if( is_new_ ) {
+		free(buffer_);
+		buffer_ = NULL;
 	}
 }
 
 //////////////////////////////////////////////////////////////////////////
 int32 ByteStream::Seek( uint32 pos ) const {
-	if( pos > m_maxLen ) {
+	if( pos > max_len_ ) {
 		return -1;
 	}
 
-	uint32 lOld = m_currentPos;
-	m_currentPos = pos;
-	m_failed = 0;
+	uint32 lOld = current_pos_;
+	current_pos_ = pos;
+	failed_ = 0;
 
 	return lOld;
 }
 
 uint32 ByteStream::Tell(  ) const {
-	return m_currentPos;
+	return current_pos_;
 }
 
 int32 ByteStream::Skip( uint32 pos ) const {
-	if( m_currentPos + pos > m_maxLen ) {
+	if( current_pos_ + pos > max_len_ ) {
 		return -1;
 	}
 
-	m_currentPos += pos;
-	m_failed = 0;
+	current_pos_ += pos;
+	failed_ = 0;
 
 	return 0;
 }
 
 bool ByteStream::Fail( ) const {
-	return 0 != m_failed;
+	return 0 != failed_;
 }
 
 const char* ByteStream::Data( ) const {
-	return m_pBuffer;
+	return buffer_;
 }
 
 char* ByteStream::MutableData(void) {
-  return m_pBuffer;
+  return buffer_;
 }
 
 uint32 ByteStream::Length( ) const {
-	return m_dataLen;
+	return data_len_;
 }
 
 //////////////////////////////////////////////////////////////////////////
-int32 ByteStream::ReadRawData( void* pdata, uint32 dataLen ) const {
-	if (m_failed){
+int32 ByteStream::ReadRawData( void* data, uint32 data_len ) const {
+	if (failed_){
 		return -1;
 	}
 
-	if(m_currentPos + dataLen > m_maxLen) {
-		m_failed = 1;
+	if(current_pos_ + data_len > max_len_) {
+		failed_ = 1;
 		return -1;
 	}
 
-	if ( dataLen == 0 ) {
+	if ( data_len == 0 ) {
 		return 0;
 	}
 
-	memcpy( pdata, m_pBuffer + m_currentPos, dataLen );
-	m_currentPos += dataLen;
+	memcpy( data, buffer_ + current_pos_, data_len );
+	current_pos_ += data_len;
 
 	return 0;
 }
 
-int32 ByteStream::ReadString( char* pStr, uint32 dataLen ) const {
+int32 ByteStream::ReadString( char* s, uint32 data_len ) const {
 	uint8 ch[4];
 	uint32 l;
 	if( 0 != ReadRawData(ch, sizeof(ch))) {
@@ -138,12 +138,12 @@ int32 ByteStream::ReadString( char* pStr, uint32 dataLen ) const {
 	}
 	else {
 		l = (( ch[0] & 0xFF) << 24) | ((ch[1] & 0xFF) << 16) | ((ch[2] & 0xFF) <<  8) | (ch[3] & 0xFF);
-		if (l>dataLen) {
-			l = dataLen;
-			pStr[l-1]='\0';
+		if (l>data_len) {
+			l = data_len;
+			s[l-1]='\0';
 		}
 	}
-	return ReadRawData(pStr, l);
+	return ReadRawData(s, l);
 }
 
 int32 ByteStream::ReadString(std::string& str) const {
@@ -156,14 +156,14 @@ int32 ByteStream::ReadString(std::string& str) const {
 		l = (( ch[0] & 0xFF) << 24) | ((ch[1] & 0xFF) << 16) | ((ch[2] & 0xFF) <<  8) | (ch[3] & 0xFF);
 	}
 
-	if ( m_currentPos + l > m_maxLen ) {
-		m_failed = 1;
+	if ( current_pos_ + l > max_len_ ) {
+		failed_ = 1;
 		return -1;
 	}
 	str.clear();
-	// str.append(m_pBuffer + m_currentPos, 0, l);
-  str.append(m_pBuffer + m_currentPos, l);
-	m_currentPos += l;
+	// str.append(buffer_ + current_pos_, 0, l);
+  str.append(buffer_ + current_pos_, l);
+	current_pos_ += l;
 	return 0;
 }
 
@@ -173,31 +173,31 @@ const ByteStream& ByteStream::operator >> (std::string& str) const {
 }
 
 const ByteStream& ByteStream::operator >> ( bool& b ) const { 
-	if ( m_currentPos + sizeof( char ) > m_maxLen ) {
-		m_failed = 1;
+	if ( current_pos_ + sizeof( char ) > max_len_ ) {
+		failed_ = 1;
 	}
 	else {
-		b = m_pBuffer[ m_currentPos++ ] ? true:false; 
+		b = buffer_[ current_pos_++ ] ? true:false; 
 	}
 	return *this; 
 }
 
 const ByteStream& ByteStream::operator >> ( uint8& ch ) const { 
-	if ( m_currentPos + sizeof( ch ) > m_maxLen ) {
-		m_failed = 1;
+	if ( current_pos_ + sizeof( ch ) > max_len_ ) {
+		failed_ = 1;
 	}
 	else {
-		ch = m_pBuffer[ m_currentPos++ ]; 
+		ch = buffer_[ current_pos_++ ]; 
 	}
 	return *this; 
 }
 
 const ByteStream& ByteStream::operator >> ( char& ch ) const { 
-	if ( m_currentPos + sizeof( ch ) > m_maxLen ) {
-		m_failed = 1;
+	if ( current_pos_ + sizeof( ch ) > max_len_ ) {
+		failed_ = 1;
 	}
 	else {
-		ch = m_pBuffer[ m_currentPos++ ]; 
+		ch = buffer_[ current_pos_++ ]; 
 	}
 	return *this; 
 }
@@ -235,18 +235,18 @@ const ByteStream& ByteStream::operator >> ( uint32& l ) const {
 }
 
 //////////////////////////////////////////////////////////////////////////
-int32 ByteStream::WriteRawData( const void* pdata, uint32 dataLen ) {
-	if (m_failed) {
+int32 ByteStream::WriteRawData( const void* data, uint32 data_len ) {
+	if (failed_) {
 		return -1;
 	}
 
-	if ( dataLen == 0 ) {
+	if ( data_len == 0 ) {
 		return 0;
 	}
 
-	if( m_currentPos + dataLen > m_maxLen ) {
-		if(m_isNew) {
-			if(0==Alloc(m_currentPos + dataLen)) {
+	if( current_pos_ + data_len > max_len_ ) {
+		if(is_new_) {
+			if(0==Alloc(current_pos_ + data_len)) {
 				return -1;
 			}
 		}
@@ -255,18 +255,18 @@ int32 ByteStream::WriteRawData( const void* pdata, uint32 dataLen ) {
 		}
 	}
 
-	memcpy( m_pBuffer + m_currentPos, pdata, dataLen );
-	m_currentPos += dataLen;
+	memcpy( buffer_ + current_pos_, data, data_len );
+	current_pos_ += data_len;
 
-	if( m_dataLen < m_currentPos ) {
-		m_dataLen = m_currentPos;
+	if( data_len_ < current_pos_ ) {
+		data_len_ = current_pos_;
 	}
 
 	return 0;
 }
 
-int32 ByteStream::WriteString( const char* pStr ) {
-	uint32	len = strlen( pStr );
+int32 ByteStream::WriteString( const char* s ) {
+	uint32	len = strlen( s );
 
 	uint8 ch[4];
 	ch[0] = (len >> 24) & 0xff;
@@ -278,7 +278,7 @@ int32 ByteStream::WriteString( const char* pStr ) {
 		return -1;
 	}
 
-	return WriteRawData(pStr, len);
+	return WriteRawData(s, len);
 }
 
 int32 ByteStream::WriteString(const std::string& str) {

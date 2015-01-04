@@ -246,6 +246,14 @@
 			>
 		</File>
 		<File
+			RelativePath=".\byte_stream.cc"
+			>
+		</File>
+		<File
+			RelativePath=".\byte_stream.h"
+			>
+		</File>
+		<File
 			RelativePath=".\config_file.cc"
 			>
 		</File>

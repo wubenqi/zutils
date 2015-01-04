@@ -56,3 +56,8 @@ lib/db.lib
 lib/libevent.lib
 lib/message_pdu.lib
 lib/net.lib
+lib/modp_b64.lib
+lib/tinyxmld_STL.lib
+lib/zlib.lib
+zutils/base2/xml/third_party/tinyxml/Debug_STL/tinyxmlSTL.bsc
+zutils/base2/xml/third_party/tinyxml/Debug_STL/tinyxmlSTL.bsc
