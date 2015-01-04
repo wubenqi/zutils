@@ -1,9 +1,9 @@
-// Copyright (c) 2010 The Chromium Authors. All rights reserved.
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 // This file intentionally does not have header guards, it's included
-// inside a macro to generate enum.
+// inside a macro to generate enum values.
 
 // This file contains the list of network errors.
 
@@ -17,7 +17,7 @@
 //   500-599 ?
 //   600-699 FTP errors
 //   700-799 Certificate manager errors
-//
+//   800-899 DNS resolver errors
 
 // An asynchronous IO operation is not yet complete.  This usually does not
 // indicate a fatal error.  Typically this error will be generated as a
@@ -68,6 +68,36 @@ NET_ERROR(UPLOAD_FILE_CHANGED, -14)
 
 // The socket is not connected.
 NET_ERROR(SOCKET_NOT_CONNECTED, -15)
+
+// The file already exists.
+NET_ERROR(FILE_EXISTS, -16)
+
+// The path or file name is too long.
+NET_ERROR(FILE_PATH_TOO_LONG, -17)
+
+// Not enough room left on the disk.
+NET_ERROR(FILE_NO_SPACE, -18)
+
+// The file has a virus.
+NET_ERROR(FILE_VIRUS_INFECTED, -19)
+
+// The client chose to block the request.
+NET_ERROR(BLOCKED_BY_CLIENT, -20)
+
+// The network changed.
+NET_ERROR(NETWORK_CHANGED, -21)
+
+// The request was blocked by the URL blacklist configured by the domain
+// administrator.
+NET_ERROR(BLOCKED_BY_ADMINISTRATOR, -22)
+
+// The socket is already connected.
+NET_ERROR(SOCKET_IS_CONNECTED, -23)
+
+// The request was blocked because the forced reenrollment check is still
+// pending. This error can only occur on ChromeOS.
+// The error can be emitted by code in chrome/browser/policy/policy_helpers.cc.
+NET_ERROR(BLOCKED_ENROLLMENT_CHECK_PENDING, -24)
 
 // A connection was closed (corresponding to a TCP FIN).
 NET_ERROR(CONNECTION_CLOSED, -100)
@@ -180,16 +210,11 @@ NET_ERROR(SSL_WEAK_SERVER_EPHEMERAL_DH_KEY, -129)
 // of an HTTP proxy.
 NET_ERROR(PROXY_CONNECTION_FAILED, -130)
 
-// We tried a Snap Start connection and sent a request, predicting the server's
-// NPN protocol support. However, after doing the actual handshake, our
-// prediction turned out to be incorrect so we sent a request in the wrong
-// protocol.
-NET_ERROR(SSL_SNAP_START_NPN_MISPREDICTION, -131)
+// A mandatory proxy configuration could not be used. Currently this means
+// that a mandatory PAC script could not be fetched, parsed or executed.
+NET_ERROR(MANDATORY_PROXY_CONFIGURATION_FAILED, -131)
 
-// We detected an ESET product intercepting our HTTPS connections. Since these
-// products are False Start intolerant, we return this error so that we can
-// give the user a helpful error message rather than have the connection hang.
-NET_ERROR(ESET_ANTI_VIRUS_SSL_INTERCEPTION, -132)
+// -132 was formerly ERR_ESET_ANTI_VIRUS_SSL_INTERCEPTION
 
 // We've hit the max socket limit for the socket pool while preconnecting.  We
 // don't bother trying to preconnect more sockets.
@@ -232,6 +257,84 @@ NET_ERROR(SSL_CLIENT_AUTH_SIGNATURE_FAILED, -141)
 // The message was too large for the transport.  (for example a UDP message
 // which exceeds size threshold).
 NET_ERROR(MSG_TOO_BIG, -142)
+
+// A SPDY session already exists, and should be used instead of this connection.
+NET_ERROR(SPDY_SESSION_ALREADY_EXISTS, -143)
+
+// Error -144 was removed (LIMIT_VIOLATION).
+
+// Websocket protocol error. Indicates that we are terminating the connection
+// due to a malformed frame or other protocol violation.
+NET_ERROR(WS_PROTOCOL_ERROR, -145)
+
+// Connection was aborted for switching to another ptotocol.
+// WebSocket abort SocketStream connection when alternate protocol is found.
+NET_ERROR(PROTOCOL_SWITCHED, -146)
+
+// Returned when attempting to bind an address that is already in use.
+NET_ERROR(ADDRESS_IN_USE, -147)
+
+// An operation failed because the SSL handshake has not completed.
+NET_ERROR(SSL_HANDSHAKE_NOT_COMPLETED, -148)
+
+// SSL peer's public key is invalid.
+NET_ERROR(SSL_BAD_PEER_PUBLIC_KEY, -149)
+
+// The certificate didn't match the built-in public key pins for the host name.
+// The pins are set in net/http/transport_security_state.cc and require that
+// one of a set of public keys exist on the path from the leaf to the root.
+NET_ERROR(SSL_PINNED_KEY_NOT_IN_CERT_CHAIN, -150)
+
+// Server request for client certificate did not contain any types we support.
+NET_ERROR(CLIENT_AUTH_CERT_TYPE_UNSUPPORTED, -151)
+
+// Server requested one type of cert, then requested a different type while the
+// first was still being generated.
+NET_ERROR(ORIGIN_BOUND_CERT_GENERATION_TYPE_MISMATCH, -152)
+
+// An SSL peer sent us a fatal decrypt_error alert. This typically occurs when
+// a peer could not correctly verify a signature (in CertificateVerify or
+// ServerKeyExchange) or validate a Finished message.
+NET_ERROR(SSL_DECRYPT_ERROR_ALERT, -153)
+
+// There are too many pending WebSocketJob instances, so the new job was not
+// pushed to the queue.
+NET_ERROR(WS_THROTTLE_QUEUE_TOO_LARGE, -154)
+
+// There are too many active SocketStream instances, so the new connect request
+// was rejected.
+NET_ERROR(TOO_MANY_SOCKET_STREAMS, -155)
+
+// The SSL server certificate changed in a renegotiation.
+NET_ERROR(SSL_SERVER_CERT_CHANGED, -156)
+
+// The SSL server indicated that an unnecessary TLS version fallback was
+// performed.
+NET_ERROR(SSL_INAPPROPRIATE_FALLBACK, -157)
+
+// Certificate Transparency: All Signed Certificate Timestamps failed to verify.
+NET_ERROR(CT_NO_SCTS_VERIFIED_OK, -158)
+
+// The SSL server sent us a fatal unrecognized_name alert.
+NET_ERROR(SSL_UNRECOGNIZED_NAME_ALERT, -159)
+
+// Failed to set the socket's receive buffer size as requested.
+NET_ERROR(SOCKET_SET_RECEIVE_BUFFER_SIZE_ERROR, -160)
+
+// Failed to set the socket's send buffer size as requested.
+NET_ERROR(SOCKET_SET_SEND_BUFFER_SIZE_ERROR, -161)
+
+// Failed to set the socket's receive buffer size as requested, despite success
+// return code from setsockopt.
+NET_ERROR(SOCKET_RECEIVE_BUFFER_SIZE_UNCHANGEABLE, -162)
+
+// Failed to set the socket's send buffer size as requested, despite success
+// return code from setsockopt.
+NET_ERROR(SOCKET_SEND_BUFFER_SIZE_UNCHANGEABLE, -163)
+
+// Failed to import a client certificate from the platform store into the SSL
+// library.
+NET_ERROR(SSL_CLIENT_AUTH_CERT_BAD_FORMAT, -164)
 
 // Certificate error codes
 //
@@ -321,12 +424,17 @@ NET_ERROR(CERT_INVALID, -207)
 // signature algorithm.
 NET_ERROR(CERT_WEAK_SIGNATURE_ALGORITHM, -208)
 
-// The domain has CERT records which are tagged as being an exclusive list of
-// valid fingerprints. But the certificate presented was not in this list.
-NET_ERROR(CERT_NOT_IN_DNS, -209)
+// -209 is availible: was CERT_NOT_IN_DNS.
 
 // The host name specified in the certificate is not unique.
 NET_ERROR(CERT_NON_UNIQUE_NAME, -210)
+
+// The server responded with a certificate that contains a weak key (e.g.
+// a too-small RSA key).
+NET_ERROR(CERT_WEAK_KEY, -211)
+
+// The certificate claimed DNS names that are in violation of name constraints.
+NET_ERROR(CERT_NAME_CONSTRAINT_VIOLATION, -212)
 
 // Add new certificate error codes here.
 //
@@ -334,7 +442,7 @@ NET_ERROR(CERT_NON_UNIQUE_NAME, -210)
 // code.
 
 // The value immediately past the last certificate error code.
-NET_ERROR(CERT_END, -211)
+NET_ERROR(CERT_END, -213)
 
 // The URL is invalid.
 NET_ERROR(INVALID_URL, -300)
@@ -412,7 +520,7 @@ NET_ERROR(INVALID_SPDY_STREAM, -335)
 // There are no supported proxies in the provided list.
 NET_ERROR(NO_SUPPORTED_PROXIES, -336)
 
-// There is a SPDY protocol framing error.
+// There is a SPDY protocol error.
 NET_ERROR(SPDY_PROTOCOL_ERROR, -337)
 
 // Credentials could not be established during HTTP Authentication.
@@ -441,12 +549,70 @@ NET_ERROR(UNDOCUMENTED_SECURITY_LIBRARY_STATUS, -344)
 // The HTTP response was too big to drain.
 NET_ERROR(RESPONSE_BODY_TOO_BIG_TO_DRAIN, -345)
 
-// The HTTP response was too big to drain.
+// The HTTP response contained multiple distinct Content-Length headers.
 NET_ERROR(RESPONSE_HEADERS_MULTIPLE_CONTENT_LENGTH, -346)
 
 // SPDY Headers have been received, but not all of them - status or version
 // headers are missing, so we're expecting additional frames to complete them.
 NET_ERROR(INCOMPLETE_SPDY_HEADERS, -347)
+
+// No PAC URL configuration could be retrieved from DHCP. This can indicate
+// either a failure to retrieve the DHCP configuration, or that there was no
+// PAC URL configured in DHCP.
+NET_ERROR(PAC_NOT_IN_DHCP, -348)
+
+// The HTTP response contained multiple Content-Disposition headers.
+NET_ERROR(RESPONSE_HEADERS_MULTIPLE_CONTENT_DISPOSITION, -349)
+
+// The HTTP response contained multiple Location headers.
+NET_ERROR(RESPONSE_HEADERS_MULTIPLE_LOCATION, -350)
+
+// SPDY server refused the stream. Client should retry. This should never be a
+// user-visible error.
+NET_ERROR(SPDY_SERVER_REFUSED_STREAM, -351)
+
+// SPDY server didn't respond to the PING message.
+NET_ERROR(SPDY_PING_FAILED, -352)
+
+// Obsolete.  Kept here to avoid reuse, as the old error can still appear on
+// histograms.
+// NET_ERROR(PIPELINE_EVICTION, -353)
+
+// The HTTP response body transferred fewer bytes than were advertised by the
+// Content-Length header when the connection is closed.
+NET_ERROR(CONTENT_LENGTH_MISMATCH, -354)
+
+// The HTTP response body is transferred with Chunked-Encoding, but the
+// terminating zero-length chunk was never sent when the connection is closed.
+NET_ERROR(INCOMPLETE_CHUNKED_ENCODING, -355)
+
+// There is a QUIC protocol error.
+NET_ERROR(QUIC_PROTOCOL_ERROR, -356)
+
+// The HTTP headers were truncated by an EOF.
+NET_ERROR(RESPONSE_HEADERS_TRUNCATED, -357)
+
+// The QUIC crytpo handshake failed.  This means that the server was unable
+// to read any requests sent, so they may be resent.
+NET_ERROR(QUIC_HANDSHAKE_FAILED, -358)
+
+// An https resource was requested over an insecure QUIC connection.
+NET_ERROR(REQUEST_FOR_SECURE_RESOURCE_OVER_INSECURE_QUIC, -359)
+
+// Transport security is inadequate for the SPDY version.
+NET_ERROR(SPDY_INADEQUATE_TRANSPORT_SECURITY, -360)
+
+// The peer violated SPDY flow control.
+NET_ERROR(SPDY_FLOW_CONTROL_ERROR, -361)
+
+// The peer sent an improperly sized SPDY frame.
+NET_ERROR(SPDY_FRAME_SIZE_ERROR, -362)
+
+// Decoding or encoding of compressed SPDY headers failed.
+NET_ERROR(SPDY_COMPRESSION_ERROR, -363)
+
+// Proxy Auth Requested without a valid Client Socket Handle.
+NET_ERROR(PROXY_AUTH_REQUESTED_WITH_NO_CONNECTION, -364)
 
 // The cache does not have the requested entry.
 NET_ERROR(CACHE_MISS, -400)
@@ -454,7 +620,8 @@ NET_ERROR(CACHE_MISS, -400)
 // Unable to read from the disk cache.
 NET_ERROR(CACHE_READ_FAILURE, -401)
 
-// ****NOTE THAT code -402 is available****
+// Unable to write to the disk cache.
+NET_ERROR(CACHE_WRITE_FAILURE, -402)
 
 // The operation is not supported for this entry.
 NET_ERROR(CACHE_OPERATION_NOT_SUPPORTED, -403)
@@ -470,6 +637,20 @@ NET_ERROR(CACHE_CREATE_FAILURE, -405)
 // tells the transaction to restart the entry-creation logic because the state
 // of the cache has changed.
 NET_ERROR(CACHE_RACE, -406)
+
+// The cache was unable to read a checksum record on an entry. This can be
+// returned from attempts to read from the cache. It is an internal error,
+// returned by the SimpleCache backend, but not by any URLRequest methods
+// or members.
+NET_ERROR(CACHE_CHECKSUM_READ_FAILURE, -407)
+
+// The cache found an entry with an invalid checksum. This can be returned from
+// attempts to read from the cache. It is an internal error, returned by the
+// SimpleCache backend, but not by any URLRequest methods or members.
+NET_ERROR(CACHE_CHECKSUM_MISMATCH, -408)
+
+// Internal error code for the HTTP cache. The cache lock timeout has fired.
+NET_ERROR(CACHE_LOCK_TIMEOUT, -409)
 
 // The server's response was insecure (e.g. there was a cert error).
 NET_ERROR(INSECURE_RESPONSE, -501)
@@ -533,3 +714,61 @@ NET_ERROR(IMPORT_CA_CERT_FAILED, -705)
 
 // Server certificate import failed due to some internal error.
 NET_ERROR(IMPORT_SERVER_CERT_FAILED, -706)
+
+// PKCS #12 import failed due to invalid MAC.
+NET_ERROR(PKCS12_IMPORT_INVALID_MAC, -707)
+
+// PKCS #12 import failed due to invalid/corrupt file.
+NET_ERROR(PKCS12_IMPORT_INVALID_FILE, -708)
+
+// PKCS #12 import failed due to unsupported features.
+NET_ERROR(PKCS12_IMPORT_UNSUPPORTED, -709)
+
+// Key generation failed.
+NET_ERROR(KEY_GENERATION_FAILED, -710)
+
+// Server-bound certificate generation failed.
+NET_ERROR(ORIGIN_BOUND_CERT_GENERATION_FAILED, -711)
+
+// Failure to export private key.
+NET_ERROR(PRIVATE_KEY_EXPORT_FAILED, -712)
+
+// Self-signed certificate generation failed.
+NET_ERROR(SELF_SIGNED_CERT_GENERATION_FAILED, -713)
+
+// The certificate database changed in some way.
+NET_ERROR(CERT_DATABASE_CHANGED, -714)
+
+// Failure to import Channel ID.
+NET_ERROR(CHANNEL_ID_IMPORT_FAILED, -715)
+
+// DNS error codes.
+
+// DNS resolver received a malformed response.
+NET_ERROR(DNS_MALFORMED_RESPONSE, -800)
+
+// DNS server requires TCP
+NET_ERROR(DNS_SERVER_REQUIRES_TCP, -801)
+
+// DNS server failed.  This error is returned for all of the following
+// error conditions:
+// 1 - Format error - The name server was unable to interpret the query.
+// 2 - Server failure - The name server was unable to process this query
+//     due to a problem with the name server.
+// 4 - Not Implemented - The name server does not support the requested
+//     kind of query.
+// 5 - Refused - The name server refuses to perform the specified
+//     operation for policy reasons.
+NET_ERROR(DNS_SERVER_FAILED, -802)
+
+// DNS transaction timed out.
+NET_ERROR(DNS_TIMED_OUT, -803)
+
+// The entry was not found in cache, for cache-only lookups.
+NET_ERROR(DNS_CACHE_MISS, -804)
+
+// Suffix search list rules prevent resolution of the given host name.
+NET_ERROR(DNS_SEARCH_EMPTY, -805)
+
+// Failed to sort addresses according to RFC3484.
+NET_ERROR(DNS_SORT_ERROR, -806)
