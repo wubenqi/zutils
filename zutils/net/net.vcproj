@@ -306,14 +306,6 @@
 				RelativePath=".\base\winsock_init.h"
 				>
 			</File>
-			<File
-				RelativePath=".\base\winsock_util.cc"
-				>
-			</File>
-			<File
-				RelativePath=".\base\winsock_util.h"
-				>
-			</File>
 		</Filter>
 		<Filter
 			Name="codec"
