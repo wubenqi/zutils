@@ -1,0 +1,11 @@
+c1000k参考资料：
+
+1. C1000k 新思路：用户态 TCP/IP 协议栈(http://blog.csdn.net/solstice/article/details/26363901)
+   @陈硕(http://blog.csdn.net/solstice)
+2. 构建C1000K的服务器(http://www.ideawu.net/blog/tag/c1000k)
+   @ideawu(http://www.ideawu.net/blog/)
+3. 100万并发连接服务器笔记(http://www.blogjava.net/yongboy/archive/2013/04.html, http://www.blogjava.net/yongboy/archive/2013/05.html)
+   @聂永的博客(http://www.blogjava.net/yongboy/)
+4. ECUG2010北京：C1000K高性能服务器构架技术(http://blog.yufeng.info/C1000K.ppt),视频(http://v.ku6.com/special/show_3859073/k1k1Zhmm_ZfpxEYn.html)
+   @余锋(http://blog.yufeng.info/)
+   
