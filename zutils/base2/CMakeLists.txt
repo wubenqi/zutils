@@ -1,4 +1,5 @@
 ADD_DEFINITIONS(-DTIXML_USE_STL)
+ADD_DEFINITIONS(-DPATCH_BY_WUBENQI)
 
 SET(SRC_LIST
 			./xml/xml_attributes.cc
@@ -17,6 +18,8 @@ SET(SRC_LIST
 			./array.h
 			./atomic_sequence_num2.h
 			./base_types.h
+			./byte_stream.h
+			./byte_stream.cc
 			./config_file.cc
 			./config_file.h
 			./config_file_util.cc

@@ -213,7 +213,7 @@ int main(int argc, char* argv[]) {
 	#endif  // defined(OS_WIN)
 
 	// Do work here.
-  base::MessageLoop loop(scoped_ptr<base::MessagePumpLibevent2>(new base::MessagePumpLibevent2()));
+  base::MessageLoop loop(scoped_ptr<base::MessagePump>(new base::MessagePumpLibevent2()));
 
   HttpServerTest server(&loop);
 	//ZNetServerTest server(&loop);

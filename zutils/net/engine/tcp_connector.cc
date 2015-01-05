@@ -107,6 +107,7 @@ void TCPConnector::ReConnect() {
     LOG(ERROR) << "Unable to connect host for: ret = " << ret
       << ": " << conn_addr_info_.ip << ":"
       << conn_addr_info_.port;
+    DoConnect(conn_addr_info_.reconnect_time);
     return;
   }
 

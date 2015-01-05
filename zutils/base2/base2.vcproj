@@ -346,10 +346,6 @@
 			>
 		</File>
 		<File
-			RelativePath="..\message_pdu\message_pdu.vcproj"
-			>
-		</File>
-		<File
 			RelativePath=".\null_lock.h"
 			>
 		</File>

@@ -15,7 +15,11 @@
 #include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
+
+#if !defined(PATCH_BY_WUBENQI)
 #include "base/nix/xdg_util.h"
+#endif
+
 #include "base/path_service.h"
 #include "base/process/process_metrics.h"
 #include "build/build_config.h"
@@ -100,14 +104,24 @@ bool PathProviderPosix(int key, FilePath* result) {
       return false;
     }
     case base::DIR_USER_DESKTOP:
+#if !defined(PATCH_BY_WUBENQI)
       *result = base::nix::GetXDGUserDirectory("DESKTOP", "Desktop");
       return true;
+#else
+      DLOG(ERROR) << "Couldn't support base::DIR_USER_DESKTOP.";
+      return false;
+#endif
     case base::DIR_CACHE: {
+#if !defined(PATCH_BY_WUBENQI)
       scoped_ptr<base::Environment> env(base::Environment::Create());
       FilePath cache_dir(base::nix::GetXDGDirectory(env.get(), "XDG_CACHE_HOME",
                                                     ".cache"));
       *result = cache_dir;
       return true;
+#else
+      DLOG(ERROR) << "Couldn't support base::DIR_CACHE.";
+      return false;
+#endif
     }
   }
   return false;

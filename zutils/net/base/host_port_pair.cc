@@ -10,18 +10,12 @@
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "net/base/ip_endpoint.h"
-#include "url/gurl.h"
 
 namespace net {
 
 HostPortPair::HostPortPair() : port_(0) {}
 HostPortPair::HostPortPair(const std::string& in_host, uint16 in_port)
     : host_(in_host), port_(in_port) {}
-
-// static
-HostPortPair HostPortPair::FromURL(const GURL& url) {
-  return HostPortPair(url.HostNoBrackets(), url.EffectiveIntPort());
-}
 
 // static
 HostPortPair HostPortPair::FromIPEndPoint(const IPEndPoint& ipe) {

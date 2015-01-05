@@ -45,6 +45,8 @@ IOHandler::IOHandler(base::MessageLoop* message_loop, SOCKET socket, Delegate* d
   : socket_(socket)
   , message_loop_(message_loop)
   , delegate_(delegate)
+  , read_buf_(64)
+  , write_buf_(64)
   , read_wait_state_(NOT_WAITING)
   , write_wait_state_(NOT_WAITING)
   , context_(NULL) {

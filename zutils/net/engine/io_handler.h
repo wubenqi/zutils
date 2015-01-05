@@ -105,7 +105,6 @@ protected:
 private:
   base::MessageLoop* message_loop_;
   Delegate* delegate_;
-  bool writing_;
 
   IOBuffer read_buf_;
   IOBuffer write_buf_;

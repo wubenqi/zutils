@@ -192,9 +192,6 @@ int _itow_s(int value, base::char16* buffer, size_t size_in_chars, int radix) {
   buffer[written] = '\0';
   return 0;
 }
-
-}
-
 #endif  // WIN32
 
 // Component ------------------------------------------------------------------
@@ -271,11 +268,12 @@ void ChooseIPv6ContractionRange(const unsigned char address[16],
 
 void AppendIPv4Address(const unsigned char address[4], std::string* output) {
   for (int i = 0; i < 4; i++) {
-    char str[16];
-    _itoa_s(address[i], str, 10);
-
-    for (int ch = 0; str[ch] != 0; ch++)
-      output->push_back(str[ch]);
+    output->append(base::IntToString(address[i]));
+//     char str[16];
+//     _itoa_s(address[i], str, 10);
+// 
+//     for (int ch = 0; str[ch] != 0; ch++)
+//       output->push_back(str[ch]);
 
     if (i != 3)
       output->push_back('.');
@@ -306,10 +304,12 @@ void AppendIPv6Address(const unsigned char address[16], std::string* output) {
       i += 2;
 
       // Stringify the 16 bit number (at most requires 4 hex digits).
-      char str[5];
-      _itoa_s(x, str, 16);
-      for (int ch = 0; str[ch] != 0; ++ch)
-        output->push_back(str[ch]);
+//       char str[5];
+//       _itoa_s(x, str, 16);
+//       for (int ch = 0; str[ch] != 0; ++ch)
+//         output->push_back(str[ch]);
+
+      output->append(base::IntToString(x));
 
       // Put a colon after each number, except the last.
       if (i < 16)

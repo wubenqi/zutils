@@ -17,10 +17,10 @@ namespace file_path_util {
 // only temporary while we fix the remainder of the code.
 // Remember to remove the #includes at the top when you remove these.
 
-FilePath FromStringHack(const std::string& string) {
-	return FilePath(string);
+base::FilePath FromStringHack(const std::string& string) {
+  return base::FilePath(string);
 }
-std::string ToStringHack(const FilePath& file_path) {
+std::string ToStringHack(const base::FilePath& file_path) {
 	return file_path.value();
 }
 

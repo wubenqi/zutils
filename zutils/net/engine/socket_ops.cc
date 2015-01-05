@@ -91,6 +91,8 @@ public:
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
+namespace {
+
 // Sets an FD to be nonblocking.
 void SetNonBlocking(SOCKET s) {
 #if defined(OS_WIN)
@@ -115,6 +117,8 @@ void SetNonBlocking(SOCKET s) {
 		<< "error doing fcntl(fd, F_SETFL, fcntl_return) fd: " << s
 		<< " errno=" << errno;
 #endif
+}
+
 }
 
 int SetDisableNagle(SOCKET s) {

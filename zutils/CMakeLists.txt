@@ -26,6 +26,9 @@ ADD_SUBDIRECTORY(base2)
 ADD_SUBDIRECTORY(db)
 ADD_SUBDIRECTORY(message_pdu)
 ADD_SUBDIRECTORY(net)
+ADD_SUBDIRECTORY(net/test_netengine)
+ADD_SUBDIRECTORY(net/examples/c1000k)
 
+#ADD_SUBDIRECTORY(scriptengine)
 
 
