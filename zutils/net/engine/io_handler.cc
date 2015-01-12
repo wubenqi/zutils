@@ -136,7 +136,9 @@ void IOHandler::OnCreated() {
   }
 
   if (delegate_) {
-    delegate_->OnNewConnection(this);
+    if (0!=delegate_->OnNewConnection(this)) {
+      Close();
+    }
   }
 }
 
@@ -154,10 +156,10 @@ void IOHandler::Close() {
 }
 
 void IOHandler::Read(base::Time recv_time) {
-  DCHECK(base::MessageLoopForIO2::current() == message_loop_);
+  DCHECK_EQ(base::MessageLoopForIO2::current(), message_loop_);
 
   int saved_errno = 0;
-  uint32 n = read_buf_.ReadFd(socket_, &saved_errno);
+  int n = read_buf_.ReadFd(socket_, &saved_errno);
   if (n > 0) {
     int ret = -1;
     if (delegate_) {
@@ -183,6 +185,15 @@ bool IOHandler::SendData(const void* data, uint32 data_len) {
   return true;
 }
 
+bool IOHandler::SendStringPiece(base::StringPiece data) {
+  if (base::MessageLoopForIO2::current() == message_loop_) {
+    SendInternal(data);
+  } else {
+    message_loop_->PostTask(FROM_HERE, base::Bind(&IOHandler::SendInternal2, base::Unretained(this), data.as_string()));
+  }
+  return true;
+}
+
 bool IOHandler::SendData(const base::StringPiece& data) {
   if (base::MessageLoopForIO2::current() == message_loop_) {
     SendInternal(data);
@@ -192,14 +203,14 @@ bool IOHandler::SendData(const base::StringPiece& data) {
   return true;
 }
 
-//bool IOHandler::SendData(IOBuffer* data) {
-//  if (base::MessageLoopForIO2::current() == message_loop_) {
-//    SendInternal(data->Peek(), data->ReadableBytes());
-//  } else {
-//    message_loop_->PostTask(FROM_HERE, base::Bind(&IOHandler::SendInternal2, base::Unretained(this), data.as_string()));
-//  }
-//  return true;
-//}
+bool IOHandler::SendData(net::IOBuffer* data) {
+ if (base::MessageLoopForIO2::current() == message_loop_) {
+   SendInternal(data->Peek(), data->ReadableBytes());
+ } else {
+   message_loop_->PostTask(FROM_HERE, base::Bind(&IOHandler::SendInternal2, base::Unretained(this), data->RetrieveAllAsString()));
+ }
+ return true;
+}
 
 void IOHandler::SendInternal2(const std::string& data) {
   return SendInternal(data.c_str(), data.length());
@@ -210,6 +221,8 @@ void IOHandler::SendInternal(const base::StringPiece& data) {
 }
 
 void IOHandler::SendInternal(const void* data, uint32 data_len) {
+  DCHECK_EQ(base::MessageLoopForIO2::current(), message_loop_);
+
   uint32 nwrote = 0;
   size_t remaining = data_len;
   bool fault_error = false;

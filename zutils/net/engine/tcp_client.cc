@@ -47,7 +47,7 @@ bool TCPClient::OnDestroyConnection() {
   bool ret = false;
   {
     base::AutoLock lock(lock_);
-    ret = io_handler_.get()!=NULL;
+    ret = io_handler_.get()==NULL;
   }
   return ret;
 }

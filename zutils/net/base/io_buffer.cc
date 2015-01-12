@@ -17,7 +17,7 @@ const char IOBuffer::kCRLF[] = "\r\n";
 // const size_t IOBuffer::kCheapPrepend;
 // const size_t IOBuffer::kInitialSize;
 
-uint32 IOBuffer::ReadFd(int fd, int* saved_errno) {
+int IOBuffer::ReadFd(int fd, int* saved_errno) {
 #if defined(OS_WIN)
   char buf[65536];  // +1 for null termination
   int n = HANDLE_EINTR(recv(fd, buf, 65536, 0));

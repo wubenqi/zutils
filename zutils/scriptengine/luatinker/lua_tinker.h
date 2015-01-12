@@ -11,7 +11,9 @@
 
 #include <new>
 #include <string.h>
+#include <string>
 
+#include "base/strings/string_piece.h"
 #include "scriptengine/lua_include.hpp"
 
 namespace lua_tinker
@@ -268,6 +270,8 @@ namespace lua_tinker
 
 	template<>	char*				read(lua_State *L, int index);
 	template<>	const char*			read(lua_State *L, int index);
+  template<>	std::string				read(lua_State *L, int index);
+  template<>	base::StringPiece				read(lua_State *L, int index);
 	template<>	char				read(lua_State *L, int index);
 	template<>	unsigned char		read(lua_State *L, int index);
 	template<>	short				read(lua_State *L, int index);
@@ -300,11 +304,16 @@ namespace lua_tinker
 	template<>	void push(lua_State *L, double ret);
 	template<>	void push(lua_State *L, char* ret);
 	template<>	void push(lua_State *L, const char* ret);
+  template<>	void push(lua_State *L, std::string ret);
+  template<>	void push(lua_State *L, const std::string& ret);
 	template<>	void push(lua_State *L, bool ret);
 	template<>	void push(lua_State *L, lua_value* ret);
 	template<>	void push(lua_State *L, long long ret);
 	template<>	void push(lua_State *L, unsigned long long ret);
 	template<>	void push(lua_State *L, table ret);
+
+  template<>	void push(lua_State *L, base::StringPiece ret);
+  template<>	void push(lua_State *L, const base::StringPiece& ret);
 
 	// pop a value from lua stack
 	template<typename T>  

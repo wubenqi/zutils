@@ -279,8 +279,8 @@ void lua_tinker::print_error(lua_State *L, const char* fmt, ...)
 	}
 	else
 	{
-		// printf("%s\n", text);
-		LOG(ERROR) << text;
+		printf("%s\n", text);
+		//LOG(ERROR) << text;
 		lua_pop(L, 1);
 	}
 }
@@ -338,6 +338,22 @@ template<>
 const char* lua_tinker::read(lua_State *L, int index)
 {
 	return (const char*)lua_tostring(L, index);		
+}
+
+template<>
+std::string lua_tinker::read(lua_State *L, int index)
+{
+  size_t s_len = 0;
+  const char* s = lua_tolstring(L, index, &s_len);
+  return std::string(s, s_len);
+}
+
+template<>
+base::StringPiece lua_tinker::read(lua_State *L, int index)
+{
+  size_t s_len = 0;
+  const char* s = lua_tolstring(L, index, &s_len);
+  return base::StringPiece(s, s_len);
 }
 
 template<>
@@ -513,6 +529,16 @@ void lua_tinker::push(lua_State *L, const char* ret)
 	lua_pushstring(L, ret);						
 }
 
+template<>	void lua_tinker::push(lua_State *L, const std::string& ret)
+{
+  lua_pushlstring(L, ret.c_str(), ret.length());						
+}
+
+template<>	void lua_tinker::push(lua_State *L, std::string ret)
+{
+  lua_pushlstring(L, ret.c_str(), ret.length());						
+}
+
 template<>
 void lua_tinker::push(lua_State *L, bool ret)
 {
@@ -548,6 +574,18 @@ template<>
 void lua_tinker::push(lua_State *L, lua_tinker::table ret)
 {
 	lua_pushvalue(L, ret.m_obj->m_index);
+}
+
+template<>
+void lua_tinker::push(lua_State *L, base::StringPiece ret)
+{
+  lua_pushlstring(L, ret.data(), ret.length());
+}
+
+template<>
+void lua_tinker::push(lua_State *L, const base::StringPiece& ret)
+{
+  lua_pushlstring(L, ret.data(), ret.length());
 }
 
 /*---------------------------------------------------------------------------*/ 

@@ -33,6 +33,13 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "c1000k", "net\examples\c100
 		{3B0E5FD2-E5C1-4DAD-8698-A4CD1F0101B9} = {3B0E5FD2-E5C1-4DAD-8698-A4CD1F0101B9}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "scriptengine_test", "scriptengine\scriptengine_test\scriptengine_test.vcproj", "{7FBFFA70-3DC9-49C6-8CB5-45DF0706FBA7}"
+	ProjectSection(ProjectDependencies) = postProject
+		{E92D648B-4372-4BAF-91B1-4E20BEB257CD} = {E92D648B-4372-4BAF-91B1-4E20BEB257CD}
+		{8C1B25CA-2D7D-415F-A6B5-70E90E928E63} = {8C1B25CA-2D7D-415F-A6B5-70E90E928E63}
+		{3B0E5FD2-E5C1-4DAD-8698-A4CD1F0101B9} = {3B0E5FD2-E5C1-4DAD-8698-A4CD1F0101B9}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -101,6 +108,12 @@ Global
 		{404BFEBA-0E36-4548-A5FA-86323B172FDC}.Release|Win32.ActiveCfg = Release|Win32
 		{404BFEBA-0E36-4548-A5FA-86323B172FDC}.Release|Win32.Build.0 = Release|Win32
 		{404BFEBA-0E36-4548-A5FA-86323B172FDC}.Release|x64.ActiveCfg = Release|Win32
+		{7FBFFA70-3DC9-49C6-8CB5-45DF0706FBA7}.Debug|Win32.ActiveCfg = Debug|Win32
+		{7FBFFA70-3DC9-49C6-8CB5-45DF0706FBA7}.Debug|Win32.Build.0 = Debug|Win32
+		{7FBFFA70-3DC9-49C6-8CB5-45DF0706FBA7}.Debug|x64.ActiveCfg = Debug|Win32
+		{7FBFFA70-3DC9-49C6-8CB5-45DF0706FBA7}.Release|Win32.ActiveCfg = Release|Win32
+		{7FBFFA70-3DC9-49C6-8CB5-45DF0706FBA7}.Release|Win32.Build.0 = Release|Win32
+		{7FBFFA70-3DC9-49C6-8CB5-45DF0706FBA7}.Release|x64.ActiveCfg = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

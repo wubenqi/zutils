@@ -9,58 +9,48 @@
 
 #include "scriptengine/script_engine.h"
 
-#include <iostream>
+// #include <iostream>
+#include "base/command_line.h"
+#include "base/at_exit.h"
+#include "base/logging.h"
+#include "base/md5.h"
 
-std::string lua_buffer = 
-"function Test()\n"
-"  print('Hello scriptengine')\n"
-"  t1 = T1()\n"
-"  t1:Debug()\n"
-"  t2 = T1(1)\n"
-"  t2:Debug()\n"
-"  t3 = T1(2,3)\n"
-"  t3:Debug()\n"
-"end";
+std::string MD5String2(const std::string& str) {
+  base::MD5Digest digest;
+  base::MD5Sum(str.c_str(), str.length(), &digest);
+  return base::MD5DigestToBase16(digest);
+}
 
+// void Luabind_Base_Register(lua_State* L) {
+//   lua_tinker::def(L, "MD5String", &MD5String2);
+//   lua_tinker::def(L, "UTF8ToNativeMB", &UTF8ToNativeMB);
+// }
 
-struct T1 {
-public:
-  T1() {
-    t1_ = 0;
-    t2_ = 0;
-  }
-
-  T1(int t1) {
-    t1_ = t1;
-    t2_ = 0;
-  }
-
-  T1(int t1, int t2) {
-    t1_ = t1;
-    t2_ = t2;
-  }
-
-  void Debug() {
-    std::cout << "t1 = " << t1_ << std::endl;
-    std::cout << "t2 = " << t2_ << std::endl;
-  }
-
-  int t1_;
-  int t2_;
-};
+void CppTestingRegister(ScriptEngine* script_engine) {
+  script_engine->RegisterFunction("MD5String", &MD5String2);
+}
 
 int main(int argc, char* argv[]) {
+  base::AtExitManager at_exit;
+
+//   CommandLine::Init(argc, argv);
+// 
+//   logging::LoggingSettings logging_settings;
+//   logging_settings.logging_dest = logging::LOG_TO_SYSTEM_DEBUG_LOG;
+//   logging::InitLogging(logging_settings);
+//   logging::SetLogItems(false, true, true, true);
+
+  if (argc != 2) {
+    LOG(ERROR) << "Need lua file!!!";
+    return -1;
+  }
+
   ScriptEngine script_engine;
   script_engine.Initialize();
-
-  script_engine.RegisterClass<T1>("T1");
-  script_engine.RegisterClassConstructor<T1>();
-  script_engine.RegisterClassConstructor<T1, int>();
-  script_engine.RegisterClassConstructor<T1, int, int>();
-  script_engine.RegisterClassFuncnction<T1>("Debug", &T1::Debug);
-
-  script_engine.DoBuffer(lua_buffer);
-  script_engine.CallFunction<int>("Test");
+  CppTestingRegister(&script_engine);
+  script_engine.DoFile(argv[1]);
+  script_engine.CallFunction<int>("DoMain");
   script_engine.Destroy();
+
   return 0;
 }

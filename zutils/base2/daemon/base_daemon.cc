@@ -43,7 +43,7 @@ MessageLoop* g_message_loop = NULL;
 
 void OnShutdownDaemon(MessageLoop* message_loop) {
   if (message_loop) {
-    message_loop->QuitNow();
+    message_loop->Quit();
   }
 }
 
@@ -95,7 +95,8 @@ void ExceptionCallback(void*) {
 }
 
 BaseDaemon::BaseDaemon() 
-	: running_(false) /*
+	: running_(false),
+    message_loop_(NULL) /*
   , ALLOW_THIS_IN_INITIALIZER_LIST(timer_manager_(this, &message_loop_)) */{
 
 //#if defined(OS_WIN)
@@ -181,10 +182,10 @@ int BaseDaemon::DoMain( int argc, char** argv ) {
 	FilePath log_filename = exe.ReplaceExtension(FILE_PATH_LITERAL("log"));
 
   logging::LoggingSettings logging_settings;
-//   logging_settings.log_file = log_filename.value().c_str();
-//   logging_settings.lock_log = logging::LOCK_LOG_FILE;
-//   logging_settings.delete_old = logging::APPEND_TO_OLD_LOG_FILE;
-//   logging_settings.logging_dest = logging::LOG_TO_ALL;
+  logging_settings.log_file = log_filename.value().c_str();
+  logging_settings.lock_log = logging::LOCK_LOG_FILE;
+  logging_settings.delete_old = logging::APPEND_TO_OLD_LOG_FILE;
+  logging_settings.logging_dest = logging::LOG_TO_ALL;
   logging::InitLogging(logging_settings);
 
 // 	logging::InitLogging(log_filename.value().c_str(),

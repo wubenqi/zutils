@@ -20,7 +20,7 @@ class TCPClient :
   public IOHandler::Delegate {
 public:
   TCPClient(base::MessageLoop* message_loop, IOHandler::Delegate* io_handler_delegate);
-  ~TCPClient();
+  virtual ~TCPClient();
 
   bool Connect(const std::string& ip, const std::string& port, bool is_numeric_host_address);
   bool DisConnect();

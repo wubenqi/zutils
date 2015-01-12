@@ -424,6 +424,30 @@
 				RelativePath=".\luatinker\lua_tinker.h"
 				>
 			</File>
+			<File
+				RelativePath=".\luatinker\sample1.lua"
+				>
+			</File>
+			<File
+				RelativePath=".\luatinker\sample2.lua"
+				>
+			</File>
+			<File
+				RelativePath=".\luatinker\sample3.lua"
+				>
+			</File>
+			<File
+				RelativePath=".\luatinker\sample4.lua"
+				>
+			</File>
+			<File
+				RelativePath=".\luatinker\sample5.lua"
+				>
+			</File>
+			<File
+				RelativePath=".\luatinker\sample6.lua"
+				>
+			</File>
 		</Filter>
 	</Files>
 	<Globals>

@@ -7,7 +7,6 @@
 
 #ifndef SCRIPTENGINE_LUABIND_REGISTER_PB_H_
 #define SCRIPTENGINE_LUABIND_REGISTER_PB_H_
-#pragma once
 
 #include <vector>
 #include "base2/linked_map.h"

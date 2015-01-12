@@ -7,7 +7,6 @@
 
 #ifndef SCRIPTENGINE_SCRIPT_ENGINE_H_
 #define SCRIPTENGINE_SCRIPT_ENGINE_H_
-#pragma once
 
 #include <string>
 

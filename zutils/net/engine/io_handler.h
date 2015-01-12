@@ -47,9 +47,12 @@ public:
 
   void Create();
 
+  bool SendData(net::IOBuffer* data);
+  bool SendData(const char* data) {
+    return SendData(base::StringPiece(data));
+  }
   bool SendData(const void* data, uint32 data_len);
   bool SendData(const base::StringPiece& data);
-  //bool SendData(IOBuffer* data);
 
   virtual void OnCreated();
   virtual void Close( );
@@ -81,6 +84,9 @@ public:
     context_ = NULL;
     return ctx;
   }
+
+  // for lua
+  bool SendStringPiece(base::StringPiece data);
 
 protected:
   void OnWrite();

@@ -18,8 +18,8 @@
 	<Configurations>
 		<Configuration
 			Name="Debug|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
+			OutputDirectory="../../../../output/debug/zutils/scriptengine_test"
+			IntermediateDirectory="../../../../output/debug/zutils/scriptengine_test"
 			ConfigurationType="1"
 			CharacterSet="1"
 			>
@@ -61,6 +61,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				OutputFile="../../../bin/$(ProjectName).exe"
 				LinkIncremental="2"
 				GenerateDebugInformation="true"
 				SubSystem="1"
@@ -175,6 +176,10 @@
 			</File>
 			<File
 				RelativePath=".\scriptegine_test.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\..\bin\scriptengine_test.lua"
 				>
 			</File>
 		</Filter>

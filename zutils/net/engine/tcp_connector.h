@@ -50,6 +50,7 @@ public:
   };
   explicit TCPConnector(base::MessageLoop* message_loop, Delegate* delegate);
 	virtual ~TCPConnector() {
+    DoClose(true);
 	}
 
   // 同步发起连接请求

@@ -9,8 +9,8 @@
 #define BASE2_UTF8_UTIL_H_
 
 #include "base/basictypes.h"
-#include "base/string_piece.h"
-#include "base/sys_string_conversions.h"
+#include "base/strings/string_piece.h"
+#include "base/strings/sys_string_conversions.h"
 
 namespace base {
 

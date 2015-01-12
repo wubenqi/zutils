@@ -402,7 +402,7 @@ class IOBuffer {
    ///
    /// It may implement with readv(2)
    /// @return result of read(2), @c errno is saved
-   uint32 ReadFd(int fd, int* saved_errno);
+   int ReadFd(int fd, int* saved_errno);
 
 private:
 

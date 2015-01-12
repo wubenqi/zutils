@@ -7,7 +7,6 @@
 
 #ifndef SCRIPTENGINE_LUABIND_REGISTER_MANAGER_H_
 #define SCRIPTENGINE_LUABIND_REGISTER_MANAGER_H_
-#pragma once
 
 #include "base/memory/singleton.h"
 #include "scriptengine/luabind_register_func.h"
