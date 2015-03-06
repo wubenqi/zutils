@@ -49,23 +49,7 @@ public:
   
   virtual int GetLastError();
 
-  static void DatabaseServerCallback(void* callback_data, uint8 msg, uint32 handle, void* pParam);
-
 protected:
-  // static void 
-  // this callback will be replaced by imconn_callback() in OnConnect()
-//   {
-//     if (msg == NETLIB_MSG_CONNECT)
-//     {
-//       CLoginConn* pConn = new CLoginConn();
-//       pConn->OnConnect2(handle, LOGIN_CONN_TYPE_MSG_SERV);
-//     }
-//     else
-//     {
-//       log("!!!error msg: %d\n", msg);
-//     }
-//   }
-
   bool CheckConnection();
   virtual bool BuildConnection();
 	virtual bool Ping();
