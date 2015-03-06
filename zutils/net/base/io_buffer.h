@@ -149,18 +149,18 @@ class IOBuffer {
      return base::StringPiece(Peek(), static_cast<int>(ReadableBytes()));
    }
 
-   void Append(const base::StringPiece& str) {
-     Append(str.data(), str.size());
+   void Write(const base::StringPiece& str) {
+     Write(str.data(), str.size());
    }
 
-   void Append(const char* /*restrict*/ data, size_t len) {
+   void Write(const char* /*restrict*/ data, size_t len) {
      EnsureWritableBytes(len);
      std::copy(data, data+len, BeginWrite());
      HasWritten(len);
    }
 
-   void Append(const void* /*restrict*/ data, size_t len) {
-     Append(static_cast<const char*>(data), len);
+   void Write(const void* /*restrict*/ data, size_t len) {
+     Write(static_cast<const char*>(data), len);
    }
 
    void EnsureWritableBytes(size_t len) {
@@ -188,87 +188,136 @@ class IOBuffer {
      writer_index_ -= len;
    }
 
-   ///
-   /// Append int64 using network endian
-   ///
-   void AppendInt64(int64 x) {
-     AppendUint64(x);
+   void WriteBigEndianInt64(int64 x) {
+     WriteBigEndianUint64(x);
    }
 
-   void AppendUint64(int64 x) {
+   void WriteBigEndianUint64(int64 x) {
      uint64 be64 = base::HostToNet64(x);
-     Append(&be64, sizeof(be64));
+     Write(&be64, sizeof(be64));
    }
 
-   ///
-   /// Append int32 using network endian
-   ///
-   void AppendInt32(int32 x) {
-     AppendUint32(x);
+   void WriteLittleEndianInt64(int64 x) {
+     WriteLittleEndianUint64(x);
    }
 
-   void AppendUint32(int32 x) {
+   void WriteLittleEndianUint64(int64 x) {
+     uint64 be64 = base::ByteSwapToLE64(x);
+     Write(&be64, sizeof(be64));
+   }
+
+   void WriteBigEndianInt32(int32 x) {
+     WriteBigEndianUint32(x);
+   }
+
+   void WriteBigEndianUint32(int32 x) {
      uint32 be32 = base::HostToNet32(x);
-     Append(&be32, sizeof(be32));
+     Write(&be32, sizeof(be32));
    }
 
-   void AppendInt16(int16 x) {
-     AppendUint16(x);
+   void WriteLittleEndianInt32(int32 x) {
+     WriteLittleEndianUint32(x);
    }
 
-   void AppendUint16(int16 x) {
+   void WriteLittleEndianUint32(int32 x) {
+     uint32 be32 = base::ByteSwapToLE32(x);
+     Write(&be32, sizeof(be32));
+   }
+
+   void WriteBigEndianInt16(int16 x) {
+     WriteBigEndianUint16(x);
+   }
+
+   void WriteBigEndianUint16(int16 x) {
      uint16 be16 = base::HostToNet16(x);
-     Append(&be16, sizeof(be16));
+     Write(&be16, sizeof(be16));
    }
 
-   void AppendInt8(int8 x) {
-     Append(&x, sizeof(x));
+   void WriteLittleEndianInt16(int16 x) {
+     WriteLittleEndianUint16(x);
    }
 
-   void AppendUint8(int8 x) {
-     Append(&x, sizeof(x));
+   void WriteLittleEndianUint16(int16 x) {
+     uint16 be16 = base::ByteSwapToLE16(x);
+     Write(&be16, sizeof(be16));
    }
 
-   ///
-   /// Read int64 from network endian
-   ///
-   /// Require: buf->readableBytes() >= sizeof(int32)
-   int64 ReadInt64() {
-     int64 result = PeekInt64();
+   void WriteInt8(int8 x) {
+     Write(&x, sizeof(x));
+   }
+
+   void WriteUint8(int8 x) {
+     Write(&x, sizeof(x));
+   }
+
+   int64 ReadBigEndianInt64() {
+     int64 result = PeekBigEndianInt64();
      RetrieveInt64();
      return result;
    }
 
-   uint64 ReadUint64() {
-     uint64 result = PeekUint64();
+   uint64 ReadBigEndianUint64() {
+     uint64 result = PeekBigEndianUint64();
      RetrieveInt64();
      return result;
    }
 
-   ///
-   /// Read int32 from network endian
-   ///
-   /// Require: buf->readableBytes() >= sizeof(int32)
-   int32 ReadInt32() {
-     int32 result = PeekInt32();
+   int64 ReadLittleEndianInt64() {
+     int64 result = PeekLittleEndianInt64();
+     RetrieveInt64();
+     return result;
+   }
+
+   uint64 ReadLittleEndianUint64() {
+     uint64 result = PeekLittleEndianUint64();
+     RetrieveInt64();
+     return result;
+   }
+
+   int32 ReadBigEndianInt32() {
+     int32 result = PeekBigEndianInt32();
      RetrieveInt32();
      return result;
    }
 
-   uint32 ReadUint32() {
-     uint32 result = PeekUint32();
+   uint32 ReadBigEndianUint32() {
+     uint32 result = PeekBigEndianUint32();
      RetrieveInt32();
      return result;
    }
 
-   int16 ReadInt16() {
-     int16 result = PeekInt16();
+   int32 ReadLittleEndianInt32() {
+     int32 result = PeekLittleEndianInt32();
+     RetrieveInt32();
+     return result;
+   }
+
+   uint32 ReadLittleEndianUint32() {
+     uint32 result = PeekLittleEndianUint32();
+     RetrieveInt32();
+     return result;
+   }
+
+   int16 ReadBigEndianInt16() {
+     int16 result = PeekBigEndianInt16();
      RetrieveInt16();
      return result;
    }
 
-   uint16 ReadUint16() {
-     uint16 result = PeekUint16();
+   uint16 ReadBigEndianUint16() {
+     uint16 result = PeekBigEndianUint16();
+     RetrieveInt16();
+     return result;
+   }
+
+   int16 ReadLittleEndianInt16() {
+     int16 result = ReadLittleEndianUint16();
+     RetrieveInt16();
+     return result;
+   }
+
+   uint16 ReadLittleEndianUint16() {
+     uint16 result = PeekLittleEndianUint16();
      RetrieveInt16();
      return result;
    }
@@ -289,41 +338,75 @@ class IOBuffer {
    /// Peek int64 from network endian
    ///
    /// Require: buf->readableBytes() >= sizeof(int64)
-   int64 PeekInt64() const {
-     return static_cast<int64>(PeekUint64());
+   int64 PeekBigEndianInt64() const {
+     return static_cast<int64>(PeekBigEndianUint64());
    }
 
-   uint64 PeekUint64() const {
+   uint64 PeekBigEndianUint64() const {
      DCHECK(ReadableBytes() >= sizeof(int64));
      uint64 be64 = 0;
      ::memcpy(&be64, Peek(), sizeof(be64));
      return base::NetToHost64(be64);
+     return be64;
    }
 
-   ///
-   /// Peek int32 from network endian
-   ///
-   /// Require: buf->readableBytes() >= sizeof(int32)
-   int32 PeekInt32() const {
-     return static_cast<int32>(PeekUint32());
+   int64 PeekLittleEndianInt64() const {
+     return static_cast<int64>(PeekLittleEndianUint64());
    }
 
-   uint32 PeekUint32() const {
+   uint64 PeekLittleEndianUint64() const {
+     DCHECK(ReadableBytes() >= sizeof(int64));
+     uint64 be64 = 0;
+     ::memcpy(&be64, Peek(), sizeof(be64));
+     return base::ByteSwapToLE64(be64);
+     return be64;
+   }
+   
+
+   int32 PeekBigEndianInt32() const {
+     return static_cast<int32>(PeekBigEndianUint32());
+   }
+
+   uint32 PeekBigEndianUint32() const {
      DCHECK(ReadableBytes() >= sizeof(int32));
      uint32 be32 = 0;
      ::memcpy(&be32, Peek(), sizeof(be32));
      return base::NetToHost32(be32);
+     return be32;
    }
 
-   int16 PeekInt16() const {
-     return static_cast<int16>(PeekUint16());
+   int32 PeekLittleEndianInt32() const {
+     return static_cast<int32>(PeekLittleEndianUint32());
    }
 
-   uint16 PeekUint16() const {
+   uint32 PeekLittleEndianUint32() const {
+     DCHECK(ReadableBytes() >= sizeof(int32));
+     uint32 be32 = 0;
+     ::memcpy(&be32, Peek(), sizeof(be32));
+     return base::ByteSwapToLE32(be32);
+     return be32;
+   }
+
+   int16 PeekBigEndianInt16() const {
+     return static_cast<int16>(PeekBigEndianUint16());
+   }
+
+   uint16 PeekBigEndianUint16() const {
      DCHECK(ReadableBytes() >= sizeof(int16));
      uint16 be16 = 0;
      ::memcpy(&be16, Peek(), sizeof(be16));
      return base::NetToHost16(be16);
+   }
+
+   int16 PeekLittleEndianInt16() const {
+     return static_cast<int16>(PeekLittleEndianUint16());
+   }
+
+   uint16 PeekLittleEndianUint16() const {
+     DCHECK(ReadableBytes() >= sizeof(int16));
+     uint16 be16 = 0;
+     ::memcpy(&be16, Peek(), sizeof(be16));
+     return base::ByteSwapToLE16(be16);
    }
 
    int8 PeekInt8() const {
@@ -341,33 +424,60 @@ class IOBuffer {
    ///
    /// Prepend int64 using network endian
    ///
-   void PrependInt64(int64 x) {
-     PrependUint64(x);
+   void PrependBigEndianInt64(int64 x) {
+     PrependBigEndianUint64(x);
    }
 
-   void PrependUint64(uint64 x) {
+   void PrependBigEndianUint64(uint64 x) {
      uint64 be64 = base::HostToNet64(x);
+     Prepend(&be64, sizeof be64);
+   }
+
+   void PrependLittleEndianInt64(int64 x) {
+     PrependLittleEndianUint64(x);
+   }
+
+   void PrependLittleEndianUint64(uint64 x) {
+     uint64 be64 = base::ByteSwapToLE64(x);
      Prepend(&be64, sizeof be64);
    }
 
    ///
    /// Prepend int32 using network endian
    ///
-   void PrependInt32(int32 x) {
-     PrependUint32(x);
+   void PrependBigEndianInt32(int32 x) {
+     PrependBigEndianUint32(x);
    }
 
-   void PrependUint32(uint32 x) {
+   void PrependBigEndianUint32(uint32 x) {
      uint32 be32 = base::HostToNet32(x);
      Prepend(&be32, sizeof be32);
    }
 
-   void PrependInt16(int16 x) {
-     PrependUint16(x);
+   void PrependLittleEndianInt32(int32 x) {
+     PrependLittleEndianUint32(x);
    }
 
-   void PrependUint16(uint16 x) {
+   void PrependLittleEndianUint32(uint32 x) {
+     uint32 be32 = base::ByteSwapToLE32(x);
+     Prepend(&be32, sizeof be32);
+   }
+
+   void PrependBigEndianInt16(int16 x) {
+     PrependBigEndianUint16(x);
+   }
+
+   void PrependBigEndianUint16(uint16 x) {
      int16 be16 = base::HostToNet16(x);
+     Prepend(&be16, sizeof be16);
+   }
+
+   void PrependLittleEndianInt16(int16 x) {
+     PrependBigEndianUint16(x);
+   }
+
+   void PrependLittleEndianUint16(uint16 x) {
+     int16 be16 = base::ByteSwapToLE16(x);
      Prepend(&be16, sizeof be16);
    }
 
@@ -390,7 +500,7 @@ class IOBuffer {
      // FIXME: use vector::shrink_to_fit() in C++ 11 if possible.
      IOBuffer other;
      other.EnsureWritableBytes(ReadableBytes()+reserve);
-     other.Append(ToStringPiece());
+     other.Write(ToStringPiece());
      Swap(other);
    }
 

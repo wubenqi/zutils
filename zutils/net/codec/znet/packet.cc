@@ -82,3 +82,58 @@ Packet* Packet::Clone() const {
 	return p;
 }
 
+//////////////////////////////////////////////////////////////////////////
+
+void* OutPacketStream::Alloc(uint32 new_len) {
+  if (failed_) return 0;
+  if (new_len > max_len_) {
+    // determine new buffer size
+    uint32 dwNewBufferSize = max_len_;
+    while (dwNewBufferSize < new_len){
+      dwNewBufferSize += Packet::kPacketHeaderSize;
+    }
+
+    // allocate new buffer
+    if (buffer_ == 0) {
+      data_ = (char *)malloc(dwNewBufferSize+Packet::kPacketHeaderSize);
+    } else	{
+      // std::cout << "new_len = " << new_len << ", max_len ==> " << m_maxLen << ", dwNewBufferSize = " << dwNewBufferSize << std::endl;
+      data_ = (char *)realloc(data_, dwNewBufferSize+Packet::kPacketHeaderSize);
+    }
+    CHECK(data_);
+    if (0==data_) {
+      failed_ = 1;
+      return 0;
+    }
+    max_len_ = dwNewBufferSize-Packet::kPacketHeaderSize;
+    buffer_ = data_+Packet::kPacketHeaderSize;
+  }
+  return data_;
+}
+
+void  OutPacketStream::Free() {
+  // std::cout << "OutPacketStream::Free()" << std::endl;
+  if(is_new_) {
+    if (data_)
+      free(data_);
+    data_ = NULL;
+    buffer_ = NULL;
+  }
+}
+
+//todo: 
+PacketPtr OutPacketStream::GetPacket() {
+  CHECK(!is_transfered_) << "GetPacket() only invoke once!!!!!";
+  if (!is_transfered_) {
+    is_transfered_ = true;
+    is_new_ = false;
+  }
+  return PacketPtr(new Packet(cmd_type_, data_, Tell()));
+}
+
+
+PacketPtr CreatePacketData(uint16 cmd_type, const void* data, uint32 data_len) {
+  PacketPtr packet(new Packet(cmd_type, data_len));
+  memcpy(packet->GetBodyData(), data, data_len);
+  return packet;
+}

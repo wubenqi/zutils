@@ -9,7 +9,6 @@
 #define NET_ENGINE_CODEC_LENGTH_HEADER_LENGTH_HEADER_CODEC_H_
 
 #include "net/engine/io_handler.h"
-#include "net/codec/teamtalk/teamtalk_packet.h"
 
 namespace net {
 
@@ -24,8 +23,9 @@ public:
     virtual int OnLengthHeaderConnectionClosed(const IOHandlerPtr& ih) { return 0; }
   };
 
-  LengthHeaderCodec(LengthHeaderCodec::Delegate* delegate) 
-    : delegate_(delegate) {
+  LengthHeaderCodec(LengthHeaderCodec::Delegate* delegate, size_t header_len = sizeof(int32)) 
+    : delegate_(delegate),
+      header_len_(header_len) {
   }
 
   virtual ~LengthHeaderCodec() {}
@@ -40,14 +40,16 @@ public:
     return delegate_->OnLengthHeaderConnectionClosed(ih);
   }
 
-  bool SendPacket(const IOHandlerPtr& ih, const TeamTalkPacketPtr& packet) {
-    return ih->SendData(packet->GetRawdataConstBuffer(), packet->GetRawdataLength());
+  bool SendPacket(const IOHandlerPtr& ih, const char* data, uint32 data_len) {
+    // IOBufferPtr 
+    // return ih->SendData(packet->GetRawdataConstBuffer(), packet->GetRawdataLength());
+    return false;
   }
 
 protected:
   LengthHeaderCodec::Delegate* delegate_;
-
-  const static size_t kHeaderLen = sizeof(int32);
+  size_t header_len_;
+  // const static size_t kHeaderLen = sizeof(int32);
 };
 
 }

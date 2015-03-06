@@ -57,9 +57,9 @@ int HttpRequestCodec::OnDataReceived(const IOHandlerPtr& ih, IOBuffer* data, bas
 
 int HttpRequestCodec::OnConnectionClosed(const IOHandlerPtr& ih) {
   // LOG(INFO) << "HttpRequestCodec::OnConnectionClosed()";
+  delegate_->OnHttpConnectionClosed(ih);
   HttpRequestContext* ctx = reinterpret_cast<HttpRequestContext*>(ih->ReleaseIOContext());
   delete ctx;
-  delegate_->OnHttpConnectionClosed(ih);
   return 0;
 }
 

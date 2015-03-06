@@ -24,7 +24,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <fcntl.h>
-#include<linux/tcp.h>
+#include <netinet/tcp.h>
 #endif
 
 #include "base/posix/eintr_wrapper.h"
@@ -173,7 +173,12 @@ void IOHandler::Read(base::Time recv_time) {
     Close();
   } else {
     errno = saved_errno;
-    LOG(ERROR) << "TcpConnection::handleRead";
+//#if defined(OS_WIN)
+    PLOG_STREAM(ERROR);
+    //<< "handleRead failed: WSAGetLastError()==" << WSAGetLastError();
+//#elif defined(OS_POSIX)
+//    LOG(ERROR) << "handleRead failed: errno << " errno;
+//#endif
     // handleError();
     Close();
   }
@@ -258,7 +263,7 @@ void IOHandler::SendInternal(const void* data, uint32 data_len) {
 //     {
 //       loop_->queueInLoop(boost::bind(highWaterMarkCallback_, shared_from_this(), oldLen + remaining));
 //     }
-    write_buf_.Append(static_cast<const char*>(data)+nwrote, remaining);
+    write_buf_.Write(static_cast<const char*>(data)+nwrote, remaining);
     if (!IsWriting()) {
       // channel_->enableWriting();
       base::MessageLoopForIO2::current()->WatchFileDescriptor(

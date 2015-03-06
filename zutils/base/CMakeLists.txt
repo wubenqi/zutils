@@ -1,5 +1,8 @@
 ADD_SUBDIRECTORY(third_party/dynamic_annotations)
 
+ADD_DEFINITIONS(-D_FILE_OFFSET_BITS=64)
+ADD_DEFINITIONS(-D_LARGE_FILES)
+ 
 SET(SRC_LIST
 		../build/build_config.h
 		async_socket_io_handler.h

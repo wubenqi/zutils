@@ -42,8 +42,6 @@ SET(SRC_LIST
 			./iterator.h
 			./linked_map.h
 			./map-util.h
-			./markup_stl.cc
-			./markup_stl.h
 			./math_util.h
 			./null_lock.h
 			./object_core.cc
@@ -61,8 +59,6 @@ SET(SRC_LIST
 			./tree.h
 			./tree_util.h
 			./utf8_util.h
-			./xml_ini_file.cc
-			./xml_ini_file.h
 			./zlib_compress.cc
 			./zlib_compress.h			
 	)

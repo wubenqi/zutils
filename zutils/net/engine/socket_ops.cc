@@ -31,7 +31,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <fcntl.h>
-#include<linux/tcp.h>
+#include <netinet/tcp.h>
 #endif
 
 namespace net {

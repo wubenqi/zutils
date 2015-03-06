@@ -278,6 +278,14 @@
 			>
 		</File>
 		<File
+			RelativePath=".\cutil.cc"
+			>
+		</File>
+		<File
+			RelativePath=".\cutil.h"
+			>
+		</File>
+		<File
 			RelativePath=".\dyn_lib.cc"
 			>
 		</File>

@@ -10,6 +10,7 @@
 
 #include "base/strings/string_number_conversions.h"
 #include "base/logging.h"
+#include "base/strings/string_util.h"
 
 /*---------------------------------------------------------------------------*/ 
 /* init                                                                      */ 
@@ -266,7 +267,7 @@ void lua_tinker::print_error(lua_State *L, const char* fmt, ...)
 
 	va_list args;
 	va_start(args, fmt);
-	vsprintf_s(text, fmt, args);
+  base::vsnprintf(text, 4096, fmt, args);
 	va_end(args);
 
 	// lua_pushstring(L, "_ALERT");

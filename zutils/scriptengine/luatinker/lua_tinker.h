@@ -924,9 +924,11 @@ namespace lua_tinker
 		// global name
 		static const char* name(const char* name = NULL)
 		{
-			static char temp[256] = "";
-			if(name) strcpy_s(temp, name);
-			return temp;
+      static std::string temp;
+      // char temp[256] = "";
+			if(name) temp = name;
+      // strcpy_s(temp, name);
+			return temp.c_str();
 		}
 	};
 

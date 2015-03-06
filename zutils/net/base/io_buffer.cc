@@ -26,7 +26,7 @@ int IOBuffer::ReadFd(int fd, int* saved_errno) {
       // ???
       LOG(ERROR) << "impossible!!!!";
     } else {
-      Append(buf, n);
+      Write(buf, n);
     }
   } else {
     *saved_errno = n;
@@ -51,7 +51,7 @@ int IOBuffer::ReadFd(int fd, int* saved_errno) {
     writer_index_ += n;
   } else {
     writer_index_ = buffer_.size();
-    Append(extrabuf, n - writable);
+    Write(extrabuf, n - writable);
   }
   // if (n == writable + sizeof extrabuf)
   // {

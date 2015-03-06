@@ -29,7 +29,19 @@ public:
   virtual void PrintDebugFieldNames() const = 0;
   
   virtual const char* GetColumnName(uint32 clm) const = 0;
-  
+
+  std::string GetColumnValue(uint32 clm) const {
+    std::string ret;
+    GetColumn(clm, &ret);
+    return ret;
+  }
+
+  std::string GetColumnValue(const base::StringPiece& clm) const {
+    std::string ret;
+    GetColumn(clm, &ret);
+    return ret;
+  }
+
   //------------------------------------------------------------------------
   virtual bool GetColumn(uint32 clm, std::string* val) const = 0;
   virtual uint32 GetColumnLength(uint32 clm) const = 0;

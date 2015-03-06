@@ -25,7 +25,7 @@ void TimerManager::SetTimer(uint32 timer_id, int tm) {
   if ((it=timers_.find(timer_id))==timers_.end()){
     TimerPtr timer2(new base::Timer(false, false));
     timers_.insert(std::make_pair(timer_id, timer2));
-    timer2->Start(FROM_HERE, base::TimeDelta::FromMicroseconds(tm), base::Bind(&TimerManager::handle_timeout, base::Unretained(this), timer_id, tm));
+    timer2->Start(FROM_HERE, base::TimeDelta::FromMilliseconds(tm), base::Bind(&TimerManager::handle_timeout, base::Unretained(this), timer_id, tm));
   } else {
     LOG(ERROR) <<"[TimerManager]: timer_id(" << timer_id << ") is existed!!!";
   }

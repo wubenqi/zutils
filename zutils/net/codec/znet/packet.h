@@ -10,7 +10,7 @@
 
 #include "base/basictypes.h"
 #include "base/memory/ref_counted.h"
-// #include "base2/byte_stream.h"
+#include "base2/byte_stream.h"
 
 //接收处理数据包
 class Packet :
@@ -105,7 +105,7 @@ public:
 	Packet* Clone() const;
 
 protected:
-	// friend class OutPacketStream;
+	friend class OutPacketStream;
 	//此构造函数只能在OutByteStream里使用,其它地方使用会出问题
 	Packet(uint16 cmd_type, const void* data, uint32 data_len);
 	Packet(const void* data, uint32 data_len);
@@ -122,5 +122,60 @@ protected:
 typedef scoped_refptr<Packet> PacketPtr;
 
 const PacketPtr& GetEmptyPacket();
+
+
+class InPacketStream :
+  public base::ByteStream {
+public:
+  InPacketStream( const PacketPtr& packet ) 
+    : base::ByteStream(packet->GetBodyData(), packet->GetBodyLength()) {
+  }
+
+  virtual ~InPacketStream() {
+  }
+};
+
+// 分配空间预留数据包头
+class OutPacketStream :
+  public base::ByteStream {
+public:
+  OutPacketStream(uint16 cmd_type) 
+    : base::ByteStream() {
+      Alloc(Packet::kPacketHeaderSize);
+      is_transfered_ = false;
+      cmd_type_ = cmd_type;
+  }
+
+  OutPacketStream(uint16 cmd_type, uint32 data_len) 
+    : base::ByteStream() {
+      Alloc(data_len);
+      is_transfered_ = false;
+      cmd_type_ = cmd_type;
+  }
+
+  virtual ~OutPacketStream() {
+    Free();
+  }
+
+  //注意,目前此函数只能调用一次
+  PacketPtr GetPacket();
+
+  inline void SetCmdType(uint16 cmd_type) {
+    cmd_type_ = cmd_type;
+  }
+
+  inline uint16 GetCmdType() {
+    return cmd_type_;
+  }
+
+protected:
+  virtual void* Alloc(uint32 new_len);
+  virtual void  Free();
+
+protected:
+  char* data_;
+  bool is_transfered_;
+  uint16 cmd_type_;
+};
 
 #endif	//

@@ -76,6 +76,13 @@ bool XMLAttributes::GetValue(size_t index, std::string* val) const {
 	return true;
 }
 
+std::string XMLAttributes::GetValue2(size_t index) const {
+  std::string v;
+  GetValue(index, &v);
+  return v;
+}
+
+
 bool XMLAttributes::GetValue(const StringPiece& attr_name, std::string* val) const {
 	AttributeMap::const_iterator pos = attrs_.find(attr_name);
 
@@ -86,6 +93,12 @@ bool XMLAttributes::GetValue(const StringPiece& attr_name, std::string* val) con
 		//LOG(ERROR) << "XMLAttributes::getValue - no value exists for an attribute named '" << attr_name << "'.";
 		return false;
 	}
+}
+
+std::string XMLAttributes::GetValueByName(const char* attr_name) const {
+  std::string v;
+  GetValue(attr_name, &v);
+  return v;
 }
 
 bool XMLAttributes::GetValueAsBool(const StringPiece& attr_name, bool* val) const {

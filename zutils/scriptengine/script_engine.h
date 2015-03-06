@@ -37,6 +37,7 @@ public:
     return lua_state_;
   }
 
+/*  
   //HACK 使用引用传递，
   template<typename T>
   void SetGlobal(const char* name, T object) {
@@ -47,6 +48,7 @@ public:
   T GetGlobal(const char* name) {
     return lua_tinker::getglobal<T>(lua_state_, name);
   }
+ */
 
   //导入全局函数 
   template<typename F>
